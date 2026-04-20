@@ -1,0 +1,103 @@
+1. Essential Tools:
+sudo apt update
+sudo apt install build-essential bison flex libgmp3-dev libmpc-dev libmpfr-dev texinfo wget git nasm qemu-system-x86
+
+Cross Compiler Download (elf-gcc):
+wget https://ftp.gnu.org/gnu/binutils/binutils-2.41.tar.gz
+wget https://ftp.gnu.org/gnu/gcc/gcc-13.2.0/gcc-13.2.0.tar.gz
+
+Extract:
+tar -xvf binutils-2.41.tar.gz
+tar -xvf gcc-13.2.0.tar.gz
+
+Build:
+mkdir build-binutils
+mkdir build-gcc
+
+cd ~/osdev/build-binutils
+../binutils-2.41/configure \
+  --target=i686-elf \
+  --prefix="$HOME/osdev/cross" \
+  --disable-nls \
+  --disable-werror
+make -j$(nproc)
+make install
+
+cd ~/osdev/build-gcc
+../gcc-13.2.0/configure \
+  --target=i686-elf \
+  --prefix="$HOME/osdev/cross" \
+  --disable-nls \
+  --enable-languages=c \
+  --without-headers
+make all-gcc -j$(nproc)
+make all-target-libgcc -j$(nproc)
+
+make install-gcc
+make install-target-libgcc
+
+Add to Path:
+echo 'export PATH="$HOME/osdev/cross/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+
+2. Folder Structure:
+osdev
+    -build (contains build files)
+    -cross (the cross compiler)
+    -src (the code for os)
+
+
+3. Code:
+For More info: https://wiki.osdev.org/BIOS
+
+3.1 How to Print on screen using BIOS Interrupts:
+org 0x7c00
+start:
+        mov ah, 0x0e ; sets the flag 'ah' = 0x0e (print char)
+        mov al, 'H' ; places char 'h' in register 'al'
+        int 0x10 ; interrupt '0x10' called (prints the value of 'al' on screen when 'ah'=0x0e)
+end:
+        times 510 - ($ - $$) db 0 ; fills rest of the bytes with '0'
+        dw 0xaa55
+
+The bootloader automatically loads 512 Bytes into memory (RAM) starting at address 0x7c00
+and the last two bytes are 0xaa55.
+
+3.2 Print Strings:
+0x7c00
+start:
+	cli ; pauses interrupts
+	xor ax, ax ; sets ax = 0 (more efficient than mov ax, 0x0)
+	mov ds, ax ; set 'ds' = 0, ds is a pointer
+	mov ss, ax ; sets up stack
+	mov sp, 0x7c00 ; stack pointer
+	sti ; resumes interrupts
+
+	mov si, stringToPrint
+	call print_string
+
+; void print_string(ds:si string)
+print_string:
+	.print_char:
+		; Gets a character and compares it with NULL
+		mov al, [ds:si]
+		cmp al, 0
+		je .done
+
+		; Calls the interuupt to print a character
+		mov ah, 0x0e
+		xor bx, bx
+		int 0x10
+
+		; Move to the next character
+		inc si
+		jmp .print_char
+
+	.done:
+		ret
+
+stringToPrint: db "Hello, world!", 0x0d, 0x0a, 0
+
+end:
+	times 510 - ($ - $$) db 0
+	dw 0xaa55
