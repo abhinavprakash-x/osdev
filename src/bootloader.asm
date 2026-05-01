@@ -1,54 +1,86 @@
 org 0x7c00
 
 start:
-    cli
-    xor ax, ax
-    mov ds, ax
-    mov es, ax
-    mov ss, ax
-    mov sp, 0x7c00
-    sti
+cli
+xor ax, ax
+mov ds, ax
+mov es, ax
+mov ss, ax
+mov sp, 0x7c00
+sti
 
-    mov [boot_drive], dl
+mov [boot_drive], dl
 
-    ; print message
-    mov si, msg
-    call print_string
+; ----------------------------
+; print message
+; ----------------------------
+mov si, msg
+call print_string
 
-    ; load stage2 (sector 2)
-    mov ah, 0x02
-    mov al, 1
-    mov ch, 0
-    mov cl, 2
-    mov dh, 0
-    mov dl, [boot_drive]
+; ----------------------------
+; reset disk (ONCE, not in loop)
+; ----------------------------
+mov ah, 0x00
+mov dl, [boot_drive]
+int 0x13
 
-    mov bx, 0x8000
-    int 0x13
-    jc disk_error
+; ----------------------------
+; load kernel (sector-by-sector)
+; ----------------------------
+mov bx, 0x8000      ; memory offset
+mov es, ax          ; ES = 0
+mov dh, 0           ; head
+mov ch, 0           ; cylinder
+mov cl, 2           ; starting sector
+mov dl, [boot_drive]
 
-    jmp 0x0000:0x8000
+mov si, 9           ; number of sectors (4172 bytes → 9 sectors)
+
+load_loop:
+mov ah, 0x02 ; BIOS read
+mov al, 1 ; read 1 sector
+int 0x13
+jc disk_error
+
+add bx, 512         ; move buffer forward
+inc cl              ; next sector
+
+dec si
+jnz load_loop
+
+; ----------------------------
+; jump to kernel
+; ----------------------------
+jmp 0x0000:0x8000
 
 disk_error:
-    mov si, err
-    call print_string
-    jmp $
+mov si, err
+call print_string
+jmp $
 
-; ---------- print ----------
+; ----------------------------
+; print string
+; ----------------------------
 print_string:
 .next:
-    mov al, [si]
-    cmp al, 0
-    je .done
-    mov ah, 0x0e
-    int 0x10
-    inc si
-    jmp .next
-.done:
-    ret
+mov al, [si]
+cmp al, 0
+je .done
 
-msg db "Loading OS...",0x0d,0x0a,0
-err db "Disk error!",0x0d,0x0a,0
+mov ah, 0x0e
+int 0x10
+
+inc si
+jmp .next
+
+.done:
+ret
+
+; ----------------------------
+; data
+; ----------------------------
+msg db "Loading OS...", 0x0d, 0x0a, 0
+err db "Disk error!", 0x0d, 0x0a, 0
 
 boot_drive db 0
 

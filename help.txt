@@ -41,11 +41,15 @@ echo 'export PATH="$HOME/osdev/cross/bin:$PATH"' >> ~/.bashrc
 source ~/.bashrc
 
 2. Folder Structure:
-osdev
-    -build (contains build files)
-    -cross (the cross compiler)
-    -src (the code for os)
-
+osdev/
+│
+├── build/              → compiled binaries
+├── cross/              → cross compiler toolchain
+├── src/
+│   ├── bootloader.asm  → bootloader
+│   ├── shell.asm       → kernel (real OS logic)
+│
+└── help.txt            → documentation (this file)
 
 3. Code:
 For More info: https://wiki.osdev.org/BIOS
@@ -262,3 +266,19 @@ help_text db "help: show help", 0x0d, 0x0a
 buffer times 64 db 0
 times 510 - ($ - $$) db 0
 dw 0xaa55
+
+3.3 Disk Reading
+INT 0x13 (AH=0x02)
+
+Inputs:
+AH = 0x02 (read)
+AL = number of sectors
+CH = cylinder
+CL = sector (starts at 1)
+DH = head
+DL = drive
+ES:BX = destination
+
+Output:
+CF = 0 → success
+CF = 1 → error
