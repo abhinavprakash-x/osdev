@@ -1,19 +1,63 @@
-all:
-	mkdir -p build
-# Bootloader
-	nasm -f bin src/bootloader.asm -o build/bootloader.bin
-# Kernel entry (object file)
-	nasm -f elf32 src/kernel_entry.asm -o build/kernel_entry.o
-# C kernel (NO PIC!)
-	gcc -m32 -ffreestanding -fno-pic -c src/kernel.c -o build/kernel.o
+BUILD_DIR = build
+SRC_DIR = src
+
+C_SOURCES = $(SRC_DIR)/kernel.c \
+            $(SRC_DIR)/drivers/vga.c
+
+C_OBJECTS = $(C_SOURCES:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
+
+ASM_OBJECTS = $(BUILD_DIR)/kernel_entry.o
+
+all: $(BUILD_DIR)/boot.img
+
+# ----------------------------
+# Bootloader (flat binary)
+# ----------------------------
+
+$(BUILD_DIR)/bootloader.bin: $(SRC_DIR)/bootloader.asm
+	mkdir -p $(BUILD_DIR)
+	nasm -f bin $< -o $@
+
+# ----------------------------
+# Kernel entry (ASM -> object)
+# ----------------------------
+
+$(BUILD_DIR)/kernel_entry.o: $(SRC_DIR)/kernel_entry.asm
+	mkdir -p $(BUILD_DIR)
+	nasm -f elf32 $< -o $@
+
+# ----------------------------
+# C files -> object files
+# ----------------------------
+
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
+	mkdir -p $(dir $@)
+	gcc -m32 -ffreestanding -fno-pic -c $< -o $@
+
+# ----------------------------
 # Link kernel
-	ld -m elf_i386 -Ttext 0x8000 -e _start \
-	build/kernel_entry.o build/kernel.o \
-	-o build/kernel.bin --oformat binary
-# Create image
-	cat build/bootloader.bin build/kernel.bin > build/boot.img
-# Run
-	qemu-system-i386 -drive format=raw,file=build/boot.img
+# ----------------------------
+
+$(BUILD_DIR)/kernel.bin: $(ASM_OBJECTS) $(C_OBJECTS) linker.ld
+	ld -m elf_i386 -T linker.ld -o $@ $(ASM_OBJECTS) $(C_OBJECTS) --oformat binary
+
+# ----------------------------
+# Final disk image
+# ----------------------------
+
+$(BUILD_DIR)/boot.img: $(BUILD_DIR)/bootloader.bin $(BUILD_DIR)/kernel.bin
+	cat $^ > $@
+
+# ----------------------------
+# Run in QEMU
+# ----------------------------
+
+run: all
+	qemu-system-i386 -drive format=raw,file=$(BUILD_DIR)/boot.img
+
+# ----------------------------
+# Clean
+# ----------------------------
 
 clean:
-	rm -rf build
+	rm -rf $(BUILD_DIR)

@@ -1,12 +1,12 @@
-void kmain() {
-    char *video = (char*) 0xb8000;
+#include "drivers/vga.h"
 
+void kmain() {
+
+    clear_screen();
     const char *msg = "Hello from C kernel!";
-    
-    for (int i = 0; msg[i] != 0; i++) {
-        video[i * 2] = msg[i];
-        video[i * 2 + 1] = 0x07; // color
-    }
+    print(msg);
+    print("Hello World!");
+    print("\nAbhinav\nPrakash\nOSDev");
 
     while (1);
 }

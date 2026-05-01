@@ -34,7 +34,7 @@ mov ch, 0           ; cylinder
 mov cl, 2           ; starting sector
 mov dl, [boot_drive]
 
-mov si, 9           ; number of sectors (4172 bytes → 9 sectors)
+mov si, 2           ; number of sectors
 
 load_loop:
 mov ah, 0x02 ; BIOS read
