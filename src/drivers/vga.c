@@ -3,7 +3,7 @@
 static volatile char* const video = (volatile char*)0xB8000;
 static size_t row = 0;
 static size_t col = 0;
-static const char color = 0x07; // light grey on black
+static const char color = 0x07;
 
 void clear_screen(void)
 {
@@ -26,7 +26,7 @@ void putchar(char c)
     else
     {
         size_t index = (row * VGA_WIDTH + col) * 2;
-        video[index]     = c;
+        video[index] = c;
         video[index + 1] = color;
 
         col++;
@@ -39,7 +39,6 @@ void putchar(char c)
 
     if (row >= VGA_HEIGHT)
     {
-        // simple behavior: wrap to top
         row = 0;
     }
 }

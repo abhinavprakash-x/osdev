@@ -1,5 +1,4 @@
 #pragma once
-
 #include <stddef.h>
 
 #define VGA_WIDTH 80

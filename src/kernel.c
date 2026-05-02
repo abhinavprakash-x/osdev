@@ -1,12 +1,16 @@
 #include "drivers/vga.h"
+#include "core/idt.h"
 
 void kmain() {
-
     clear_screen();
-    const char *msg = "Hello from C kernel!";
-    print(msg);
-    print("Hello World!");
-    print("\nAbhinav\nPrakash\nOSDev");
+
+    print("Initializing IDT...\n");
+
+    idt_init();
+
+    print("Triggering interrupt...\n");
+
+    __asm__ volatile ("int $0");
 
     while (1);
 }

@@ -1,63 +1,95 @@
-BUILD_DIR = build
+ASM = nasm
+CC  = gcc
+LD  = ld
+
 SRC_DIR = src
+BUILD_DIR = build
 
-C_SOURCES = $(SRC_DIR)/kernel.c \
-            $(SRC_DIR)/drivers/vga.c
+# Flags
+CFLAGS = -m32 -ffreestanding -fno-pic -Wall -Wextra -I$(SRC_DIR)
+LDFLAGS = -m elf_i386 -T linker.ld --oformat binary
 
-C_OBJECTS = $(C_SOURCES:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
+# --------------------------
+# Source discovery
+# --------------------------
 
-ASM_OBJECTS = $(BUILD_DIR)/kernel_entry.o
+# C files
+C_SOURCES := $(shell find $(SRC_DIR) -type f -name "*.c")
+
+# ASM files
+ASM_ALL := $(shell find $(SRC_DIR) -type f -name "*.asm")
+
+# Bootloader (special case)
+BOOTLOADER := $(SRC_DIR)/bootloader.asm
+
+# Kernel ASM (exclude bootloader)
+ASM_KERNEL := $(filter-out $(BOOTLOADER), $(ASM_ALL))
+
+# --------------------------
+# Object mapping
+# --------------------------
+
+C_OBJECTS := $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/%.o,$(C_SOURCES))
+ASM_OBJECTS := $(patsubst $(SRC_DIR)/%.asm,$(BUILD_DIR)/%.o,$(ASM_KERNEL))
+
+OBJECTS := $(C_OBJECTS) $(ASM_OBJECTS)
+
+# --------------------------
+# Targets
+# --------------------------
 
 all: $(BUILD_DIR)/boot.img
 
-# ----------------------------
-# Bootloader (flat binary)
-# ----------------------------
-
-$(BUILD_DIR)/bootloader.bin: $(SRC_DIR)/bootloader.asm
+# --------------------------
+# Bootloader (raw binary)
+# --------------------------
+$(BUILD_DIR)/bootloader.bin: $(BOOTLOADER)
 	mkdir -p $(BUILD_DIR)
-	nasm -f bin $< -o $@
+	$(ASM) -f bin $< -o $@
 
-# ----------------------------
-# Kernel entry (ASM -> object)
-# ----------------------------
-
-$(BUILD_DIR)/kernel_entry.o: $(SRC_DIR)/kernel_entry.asm
-	mkdir -p $(BUILD_DIR)
-	nasm -f elf32 $< -o $@
-
-# ----------------------------
-# C files -> object files
-# ----------------------------
-
+# --------------------------
+# Compile C
+# --------------------------
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
 	mkdir -p $(dir $@)
-	gcc -m32 -ffreestanding -fno-pic -c $< -o $@
+	$(CC) $(CFLAGS) -c $< -o $@
 
-# ----------------------------
+# --------------------------
+# Compile ASM (ELF)
+# --------------------------
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.asm
+	mkdir -p $(dir $@)
+	$(ASM) -f elf32 $< -o $@
+
+# --------------------------
 # Link kernel
-# ----------------------------
+# --------------------------
+$(BUILD_DIR)/kernel.bin: $(OBJECTS)
+	$(LD) $(LDFLAGS) -o $@ $^
 
-$(BUILD_DIR)/kernel.bin: $(ASM_OBJECTS) $(C_OBJECTS) linker.ld
-	ld -m elf_i386 -T linker.ld -o $@ $(ASM_OBJECTS) $(C_OBJECTS) --oformat binary
-
-# ----------------------------
-# Final disk image
-# ----------------------------
-
+# --------------------------
+# Final image
+# --------------------------
 $(BUILD_DIR)/boot.img: $(BUILD_DIR)/bootloader.bin $(BUILD_DIR)/kernel.bin
 	cat $^ > $@
 
-# ----------------------------
-# Run in QEMU
-# ----------------------------
-
+# --------------------------
+# Run
+# --------------------------
 run: all
 	qemu-system-i386 -drive format=raw,file=$(BUILD_DIR)/boot.img
 
-# ----------------------------
-# Clean
-# ----------------------------
+# --------------------------
+# Debug (VERY useful)
+# --------------------------
+print:
+	@echo "C_SOURCES = $(C_SOURCES)"
+	@echo "ASM_ALL   = $(ASM_ALL)"
+	@echo "ASM_KERNEL= $(ASM_KERNEL)"
+	@echo "OBJECTS   = $(OBJECTS)"
 
+# --------------------------
+# Clean
+# --------------------------
 clean:
 	rm -rf $(BUILD_DIR)
