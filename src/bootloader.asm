@@ -1,5 +1,5 @@
 [org 0x7c00]
-[bits 16] ; Explicitly declare 16-bit mode for the start
+[bits 16]
 
 start:
     cli
@@ -16,31 +16,19 @@ start:
     mov si, msg
     call print_string
 
-    ; reset disk
+    ; reset disk (Ah=0)
     mov ah, 0x00
     mov dl, [boot_drive]
     int 0x13
 
-    ; load kernel (3 sectors)
-    mov bx, 0x8000
-    mov dh, 0
-    mov ch, 0
-    mov cl, 2
-    mov dl, [boot_drive]
-
-    mov si, 3
-
-load_loop:
-    mov ah, 0x02
-    mov al, 1
+    ; ----------------------------
+    ; LOAD KERNEL USING LBA
+    ; ----------------------------
+    mov ah, 0x42           ; BIOS Extended Read function
+    mov dl, [boot_drive]   ; Drive number
+    mov si, DAP            ; Point SI to our Disk Address Packet
     int 0x13
-    jc disk_error
-
-    add bx, 512
-    inc cl
-
-    dec si
-    jnz load_loop
+    jc disk_error          ; If carry flag is set, error!
 
     ; switch to protected mode
     cli
@@ -52,21 +40,19 @@ load_loop:
 
     jmp 0x08:protected_mode_start
 
+
 ; ----------------------------
-; 16-BIT FUNCTIONS (MOVED HERE)
+; 16-BIT FUNCTIONS 
 ; ----------------------------
 print_string:
 .next:
     mov al, [si]
     cmp al, 0
     je .done
-
     mov ah, 0x0e
     int 0x10
-
     inc si
     jmp .next
-
 .done:
     ret
 
@@ -80,45 +66,48 @@ disk_error:
 ; -------------------------
 gdt_start:
     dq 0x0000000000000000
-
 gdt_code:
     dq 0x00cf9a000000ffff
-
 gdt_data:
     dq 0x00cf92000000ffff
-
 gdt_end:
 
 gdt_descriptor:
     dw gdt_end - gdt_start - 1
     dd gdt_start
 
-
 ; -------------------------
 ; 32-bit mode
 ; -------------------------
 [bits 32]
 protected_mode_start:
-
     mov ax, 0x10
     mov ds, ax
     mov ss, ax
     mov es, ax
-
-    mov esp, 0x90000
-
-    ; disable interrupts BEFORE kernel
+    mov esp, 0xa0000
     cli
-
     jmp 0x08:0x8000
 
 ; ----------------------------
-; DATA
+; DATA & VARIABLES
 ; ----------------------------
-msg db "Loading OS...", 0x0d, 0x0a, 0
+msg db "Loading OS via LBA...", 0x0d, 0x0a, 0
 err db "Disk error!", 0x0d, 0x0a, 0
-
 boot_drive db 0
+
+; ----------------------------
+; DISK ADDRESS PACKET (DAP)
+; ----------------------------
+; The BIOS requires this to be strictly formatted
+align 4
+DAP:
+    db 0x10             ; Size of this packet (always 16 bytes)
+    db 0                ; Always 0
+    dw 30                ; Number of sectors to read (your kernel size)
+    dw 0x8000           ; Memory Offset to load to
+    dw 0x0000           ; Memory Segment to load to (0:0x8000)
+    dq 1                ; LBA address to start reading from (Sector 1)
 
 times 510 - ($ - $$) db 0
 dw 0xaa55

@@ -282,3 +282,18 @@ ES:BX = destination
 Output:
 CF = 0 → success
 CF = 1 → error
+
+
+Next Steps:
+[>] VGA Text Scrolling
+[ ] Set Up PIC
+[ ] IRQ1 Keyboard
+[ ] Shell
+
+
+Memory Mapping:
+0x0000 BIOS
+0x7c00 bootloader
+0x8000 kernel (and other os code)
+0x90000 idt
+0xA0000 stack

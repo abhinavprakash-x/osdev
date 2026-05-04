@@ -7,7 +7,7 @@ static const char color = 0x07;
 
 void clear_screen(void)
 {
-    for (size_t i = 0; i < VGA_WIDTH * VGA_HEIGHT; i++)
+    for (size_t i = 0; i < VGA_WIDTH * VGA_HEIGHT; ++i)
     {
         video[i * 2]     = ' ';
         video[i * 2 + 1] = color;
@@ -39,13 +39,23 @@ void putchar(char c)
 
     if (row >= VGA_HEIGHT)
     {
-        row = 0;
+        for(size_t i = 0; i < VGA_WIDTH * (VGA_HEIGHT - 1) * 2; ++i)
+        {
+            video[i] = video[i + VGA_WIDTH * 2];
+        }
+        size_t last_row_start = (VGA_HEIGHT - 1) * VGA_WIDTH * 2;
+        for (size_t i = 0; i < VGA_WIDTH; i++)
+        {
+            video[last_row_start + (i * 2)] = ' ';
+            video[last_row_start + (i * 2) + 1] = color;
+        }
+        row = VGA_HEIGHT - 1;
     }
 }
 
 void print(const char* s)
 {
-    for (size_t i = 0; s[i] != '\0'; i++)
+    for (size_t i = 0; s[i] != '\0'; ++i)
     {
         putchar(s[i]);
     }

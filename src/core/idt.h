@@ -14,4 +14,12 @@ struct idt_ptr {
     uint32_t base;
 } __attribute__((packed));
 
+// This defines what the stack looks like after an ISR runs
+typedef struct {
+    uint32_t ds;                                     // Data segment selector
+    uint32_t edi, esi, ebp, esp, ebx, edx, ecx, eax; // Pushed by pushad
+    uint32_t int_no, err_code;                       // Interrupt number and error code
+    uint32_t eip, cs, eflags, useresp, ss;           // Pushed by the CPU automatically
+} registers_t;
+
 void idt_init();
