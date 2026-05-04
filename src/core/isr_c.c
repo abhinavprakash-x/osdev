@@ -1,6 +1,8 @@
 #include "../drivers/vga.h"
 #include "idt.h"
 
+extern void keyboard_handler();
+
 // Standard list of CPU exceptions
 char *exception_messages[] = {
     "Division By Zero",
@@ -38,11 +40,19 @@ char *exception_messages[] = {
 };
 
 void isr_handler(registers_t *regs) {
-    print("\n[KERNEL PANIC] - CPU EXCEPTION FIRED\n");
-    print(exception_messages[regs->int_no]);
-    print("\nSystem Halted.\n");
-    
-    // An exception usually means something fatally broke.
-    // Freeze the system so it doesn't do further damage.
-    while(1);
+    //if interrupt33
+    if(regs->int_no == 33)
+    {
+        keyboard_handler();
+    }
+    else if(regs->int_no < 32)
+    {
+        print("\n[KERNEL PANIC] - CPU EXCEPTION FIRED\n");
+        print(exception_messages[regs->int_no]);
+        print("\nSystem Halted.\n");
+        
+        // An exception usually means something fatally broke.
+        // Freeze the system so it doesn't do further damage.
+        while(1);
+    }
 }

@@ -54,6 +54,7 @@ ISR_NOERRCODE 28
 ISR_NOERRCODE 29
 ISR_NOERRCODE 30
 ISR_NOERRCODE 31
+ISR_NOERRCODE 33
 
 ; The C function we will call
 extern isr_handler
