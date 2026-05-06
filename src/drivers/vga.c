@@ -23,6 +23,30 @@ void putchar(char c)
         col = 0;
         row++;
     }
+    else if (c == '\t')
+    {
+        col = (col + 4) & ~3;
+        if (col >= VGA_WIDTH)
+        {
+            col = 0;
+            row++;
+        }
+    }
+    else if (c == '\b')
+    {
+        if (col == 0) 
+        {
+            if (row > 0) 
+            {
+                row--;
+                col = VGA_WIDTH - 1;
+            }
+        } 
+        else col--;
+        size_t index = (row * VGA_WIDTH + col) * 2;
+        video[index] = ' ';
+        video[index + 1] = color;
+    }
     else
     {
         size_t index = (row * VGA_WIDTH + col) * 2;
