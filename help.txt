@@ -289,9 +289,8 @@ Next Steps:
 [>] Set Up PIC
 [>] IRQ1 Keyboard
 [>] Fix tabs and backspaces in vga drivers
-[ ] Add Blinking Cursor
-[ ] Add shift / caps lock
-[ ] maybe change folder structure
+[>] Add Blinking Cursor
+[>] Add shift / caps lock
 [ ] libc functions (printf, strcmp, etc for shell)
 [ ] Shell
 

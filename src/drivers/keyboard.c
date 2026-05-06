@@ -22,25 +22,46 @@ const char keyboard_map[128] = {
     0,    // 0x57 is F11
     0     // 0x58 is F12
 };
+const char keyboard_map_shift[128] = {
+    0,    27,  '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '_',  '+', '\b',  
+    '\t', 'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', '{', '}', '\n', 0,    
+    'A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', ':', '\"', '~', 0,    
+    '|', 'Z', 'X', 'C', 'V', 'B', 'N', 'M', '<', '>', '?',
+    0, '*', 0, ' ', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,    
+    '7', '8', '9', '-', '4', '5', '6', '+', '1', '2', '3', '0', '.', 
+    0, 0, 0, 0, 0     
+};
 
-void keyboard_handler() {
+static bool shift_pressed = false;
+static bool caps_lock = false;
+
+void keyboard_handler() 
+{
     uint8_t scancode = inb(0x60);
 
-    // Make code check! (Ignore key releases)
-    if (scancode < 0x80) {
+    if (scancode == 0xAA || scancode == 0xB6)
+        shift_pressed = false;
+
+    else if (scancode < 0x80) {
         
-        // Intercept Control Keys BEFORE the array
-        if (scancode == 0x3B) {
-            // F1 = Clear Screen for now
-            clear_screen();
-        }
+        if (scancode == 0x2A || scancode == 0x36) shift_pressed = true;
+        else if (scancode == 0x3A) caps_lock = !caps_lock;
+        else if (scancode == 0x3B) clear_screen();
         else {
-            char c = keyboard_map[scancode];
+            char c = 0;
+            if (shift_pressed) c = keyboard_map_shift[scancode];
+            else c = keyboard_map[scancode];
+            if (caps_lock) {
+                if (c >= 'a' && c <= 'z') {
+                    c = c - 32; 
+                } else if (c >= 'A' && c <= 'Z') {
+                    c = c + 32; 
+                }
+            }
             if (c != 0) {
                 putchar(c);
             }
         }
     }
-
-    outb(0x20, 0x20); // Send EOI
+    outb(0x20, 0x20); 
 }
