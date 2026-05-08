@@ -1,5 +1,6 @@
 #include "keyboard.h"
 
+extern void shell_input();
 // 1D array of single characters mapping to Scancode Set 1
 const char keyboard_map[128] = {
     0,    27,  '1', '2', '3', '4', '5', '6', '7', '8', '9', '0',
@@ -59,7 +60,7 @@ void keyboard_handler()
                 }
             }
             if (c != 0) {
-                putchar(c);
+                shell_input(c);
             }
         }
     }

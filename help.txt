@@ -291,8 +291,8 @@ Next Steps:
 [>] Fix tabs and backspaces in vga drivers
 [>] Add Blinking Cursor
 [>] Add shift / caps lock
-[ ] libc functions (printf, strcmp, etc for shell)
-[ ] Shell
+[.] libc functions (printf, strcmp, etc for shell)
+[>] Shell
 
 
 Memory Mapping:

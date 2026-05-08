@@ -3,6 +3,8 @@
 #include "core/idt.h"
 #include "core/pic_c.h"
 
+extern void shell_init();
+
 void kmain() {
     clear_screen();
     print("Welcome to OS\n");
@@ -17,5 +19,6 @@ void kmain() {
 
     __asm__ volatile ("sti");
 
+    shell_init();
     while (1);
 }
