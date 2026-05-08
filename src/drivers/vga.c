@@ -65,12 +65,14 @@ void putchar(char c)
         }
     }
 
-    if (row >= VGA_HEIGHT)
+if (row >= VGA_HEIGHT)
     {
-        for(size_t i = 0; i < VGA_WIDTH * (VGA_HEIGHT - 1) * 2; ++i)
-        {
-            video[i] = video[i + VGA_WIDTH * 2];
-        }
+        // Destination: The very start of video memory (Row 0)
+        // Source: The start of Row 1 (video + VGA_WIDTH * 2 bytes)
+        // Count: The total bytes in 24 rows
+        size_t bytes_to_copy = VGA_WIDTH * (VGA_HEIGHT - 1) * 2;
+        memcpy((void*)video, (const void*)(video + VGA_WIDTH * 2), bytes_to_copy);
+
         size_t last_row_start = (VGA_HEIGHT - 1) * VGA_WIDTH * 2;
         for (size_t i = 0; i < VGA_WIDTH; i++)
         {
