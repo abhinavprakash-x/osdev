@@ -1,6 +1,7 @@
 #include "../drivers/vga.h"
 #include "../libc/string.h"
 #include "../libc/mem.h"
+#include "../libc/stdlib.h"
 
 static char buffer[256];
 static int buffer_index = 0;
