@@ -16,7 +16,18 @@ void execute_command()
 {
     if(strlen(buffer) == 0) print("OS> ");
     if (strcmp(buffer, "clear") == 0) clear_screen();
-    else if (strcmp(buffer, "help") == 0) print("Available commands: clear, help\n");
+    else if (strcmp(buffer, "help") == 0)
+    {
+        print("Available commands:\n");
+        print("help: Shows this menu\n");
+        print("clear: Clears the screen (F1)\n");
+        print("echo <string>: Prints string on console\n");
+    }  
+    else if (strncmp(buffer, "echo ", 5) == 0)
+    {
+        print(buffer + 5);
+        print("\n");
+    }
     else
     {
         print("Unknown command: ");
