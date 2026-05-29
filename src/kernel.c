@@ -1,5 +1,6 @@
 #include "drivers/vga.h"
 #include "drivers/keyboard.h"
+#include "drivers/pit.h"
 #include "core/idt.h"
 #include "core/pic_c.h"
 
@@ -16,6 +17,10 @@ void kmain() {
     print("Initializing PIC...\n");
     pic_init();
     print("Sucessfully Initialized\n");
+
+    print("Initializing PIT...\n");
+    pit_init(100);
+    print("Successfully Initialized with frequency of 100 ticks/second\n");
 
     __asm__ volatile ("sti");
 

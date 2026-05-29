@@ -13,7 +13,7 @@ extern void isr16(); extern void isr17(); extern void isr18(); extern void isr19
 extern void isr20(); extern void isr21(); extern void isr22(); extern void isr23();
 extern void isr24(); extern void isr25(); extern void isr26(); extern void isr27();
 extern void isr28(); extern void isr29(); extern void isr30(); extern void isr31();
-extern void isr33();
+extern void isr32(); extern void isr33();
 
 static struct idt_entry* idt = (struct idt_entry*)0x90000;
 static struct idt_ptr idtp;
@@ -52,7 +52,7 @@ void idt_init() {
     set_idt_gate(26, (uint32_t)isr26); set_idt_gate(27, (uint32_t)isr27);
     set_idt_gate(28, (uint32_t)isr28); set_idt_gate(29, (uint32_t)isr29);
     set_idt_gate(30, (uint32_t)isr30); set_idt_gate(31, (uint32_t)isr31);
-    set_idt_gate(33, (uint32_t)isr33);
+    set_idt_gate(32, (uint32_t)isr32); set_idt_gate(33, (uint32_t)isr33);
 
     idt_load((uint32_t)&idtp);
 }

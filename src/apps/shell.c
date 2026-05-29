@@ -2,6 +2,7 @@
 #include "../libc/string.h"
 #include "../libc/mem.h"
 #include "../libc/stdlib.h"
+#include "../drivers/pit.h"
 
 static char buffer[256];
 static int buffer_index = 0;
@@ -31,6 +32,7 @@ void execute_command()
         print("clear: Clears the screen (F1)\n");
         print("echo <string>: Prints string on console\n");
         print("calc <eqn>: Calculator\n");
+        print("time: Shows Seconds since last boot\n");
     }  
     else if (strncmp(buffer, "echo ", 5) == 0)
     {
@@ -79,6 +81,14 @@ void execute_command()
             print("\n");
         }
         else print("Error: Invalid syntax. Use format: calc 5+3\n");
+    }
+    else if (strcmp(buffer, "time") == 0)
+    {
+        char buf[32];
+        itoa(get_ticks() / 100, buf); // Divide by 100 to get seconds!
+        print("Seconds since boot: ");
+        print(buf);
+        print("\n");
     }
     else
     {

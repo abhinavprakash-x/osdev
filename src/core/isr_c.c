@@ -2,6 +2,8 @@
 #include "idt.h"
 
 extern void keyboard_handler();
+extern void pit_handler();
+extern void outb(uint16_t port, uint8_t data);
 
 // Standard list of CPU exceptions
 char *exception_messages[] = {
@@ -39,9 +41,14 @@ char *exception_messages[] = {
     "Reserved"
 };
 
-void isr_handler(registers_t *regs) {
-    //if interrupt33
-    if(regs->int_no == 33)
+void isr_handler(registers_t *regs)
+{
+    if(regs->int_no == 32)
+    {
+        pit_handler();
+        outb(0x20, 0x20);
+    }
+    else if(regs->int_no == 33)
     {
         keyboard_handler();
     }
