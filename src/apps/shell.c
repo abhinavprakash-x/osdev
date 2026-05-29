@@ -15,19 +15,70 @@ void shell_init()
 
 void execute_command()
 {
-    if(strlen(buffer) == 0) print("OS> ");
-    if (strcmp(buffer, "clear") == 0) clear_screen();
+    if(strlen(buffer) == 0)
+    {
+        print("OS> ");
+        return;
+    }
+    if (strcmp(buffer, "clear") == 0)
+    {
+        clear_screen();
+    }
     else if (strcmp(buffer, "help") == 0)
     {
         print("Available commands:\n");
         print("help: Shows this menu\n");
         print("clear: Clears the screen (F1)\n");
         print("echo <string>: Prints string on console\n");
+        print("calc <eqn>: Calculator\n");
     }  
     else if (strncmp(buffer, "echo ", 5) == 0)
     {
         print(buffer + 5);
         print("\n");
+    }
+    else if (strncmp(buffer, "calc ", 5) == 0)
+    {
+        char* eqn_l = buffer + 5;
+        char operator = 0;
+        char* eqn_r = 0;
+        int i = 0;
+
+        while(eqn_l[i] != '\0')
+        {
+            if (eqn_l[i] == '+' || eqn_l[i] == '-' || eqn_l[i] == '*' || eqn_l[i] == '/')
+            {
+                operator = eqn_l[i];
+                eqn_l[i] = '\0';
+                eqn_r = &eqn_l[i + 1];
+                break;
+            }
+            i++;
+        }
+        if(operator != 0)
+        {
+            int num1 = atoi(eqn_l);
+            int num2 = atoi(eqn_r);
+            int result = 0;
+
+            if (operator == '+') result = num1 + num2;
+            else if (operator == '-') result = num1 - num2;
+            else if (operator == '*') result = num1 * num2;
+            else if (operator == '/')
+            {
+                if (num2 == 0)
+                {
+                    print("Error: Division by zero\n");
+                    return;
+                }
+                result = num1 / num2;
+            }
+            char result_str[32];
+            itoa(result, result_str);
+            print(result_str);
+            print("\n");
+        }
+        else print("Error: Invalid syntax. Use format: calc 5+3\n");
     }
     else
     {
