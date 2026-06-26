@@ -56,13 +56,15 @@ For More info: https://wiki.osdev.org/BIOS
 For More info: https://github.com/cfenollosa/os-tutorial/
 
 Next Steps:
-[] PIT (programmable interval timer)
+[>] PIT (programmable interval timer)
+[] printf
 [] malloc and free
 [] File System
 [] Ring 3 User Mode
 
 Memory Mapping:
 0x0000 BIOS
+0x5000 memory map
 0x7c00 bootloader
 0x8000 kernel (and other os code)
 0x90000 idt

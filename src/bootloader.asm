@@ -30,6 +30,8 @@ start:
     int 0x13
     jc disk_error          ; If carry flag is set, error!
 
+    call mem_map_start
+
     ; switch to protected mode
     cli
     lgdt [gdt_descriptor]
@@ -60,6 +62,25 @@ disk_error:
     mov si, err
     call print_string
     jmp $
+
+mem_map_start:
+    mov di, 0x5004 ; map will be stored at 0x5000
+    xor ebx, ebx
+    xor ebp, ebp ; count number of entries
+.loop:
+    mov eax, 0xe820
+    mov ecx, 24
+    mov edx, 0x534d4150 ; magic number for SMAP
+    int 0x15 ; interrupt 0x15
+    jmp .done
+
+    add di, 24 ; move pointer to next slot for next entry
+    inc ebp ; increment entry count
+    cmp ebx, 0 ; if ebx = 0, list ended, exit
+    jne .loop
+.done:
+    mov [0x5000], ebp ; save number of entries at 0x5000
+    ret
 
 ; -------------------------
 ; GDT
