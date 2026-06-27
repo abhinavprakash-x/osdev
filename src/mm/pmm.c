@@ -13,7 +13,25 @@ uint32_t mem_map[32768];
 
 void pmm_init()
 {
-    // do later
+    int entry_count = *(uint32_t*)0x5000;
+
+    for(int i = 0; i < 32768; ++i)
+        mem_map[i] = 0xFFFFFFFF;
+
+    struct mem_map_entry* mmap = (struct mem_map_entry*)0x5004;
+    for(uint32_t i = 0; i < entry_count; ++i)
+    {
+        if(mmap[i].region_type == 1)
+        {
+            uint32_t start_frame = mmap[i].base_addr / 4096;
+            uint32_t num_frames = mmap[i].region_length / 4096;
+            for(uint32_t j = 0; j < num_frames; ++j) clear_bit(start_frame + j);
+        }
+    }
+
+    //Protect the Kernel (mark starting 1 MegaByte as used (for kernel and vga memory etc.))
+    for(uint32_t i = 0; i < 256; ++i)
+        set_bit(i);
 }
 
 void set_bit(int bit)

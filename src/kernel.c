@@ -3,6 +3,7 @@
 #include "drivers/pit.h"
 #include "core/idt.h"
 #include "core/pic_c.h"
+#include "mm/pmm.h"
 
 extern void shell_init();
 
@@ -21,6 +22,10 @@ void kmain() {
     print("Initializing PIT...\n");
     pit_init(100);
     print("Successfully Initialized with frequency of 100 ticks/second\n");
+
+    print("Initializing PMM...\n");
+    pmm_init();
+    print("Successfully Initialized\n");
 
     __asm__ volatile ("sti");
 
