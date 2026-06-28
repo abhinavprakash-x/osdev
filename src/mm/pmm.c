@@ -13,7 +13,7 @@ uint32_t mem_map[32768];
 
 void pmm_init()
 {
-    int entry_count = *(uint32_t*)0x5000;
+    uint32_t entry_count = *(uint32_t*)0x5000;
 
     for(int i = 0; i < 32768; ++i)
         mem_map[i] = 0xFFFFFFFF;
@@ -53,4 +53,30 @@ int test_bit(int bit)
     int idx = bit / 32;
     int bit_offset = bit % 32;
     return (mem_map[idx] & (1 << bit_offset)) != 0;
+}
+
+void* pmm_alloc_block()
+{
+    for(int i = 0; i < 32768; ++i)
+    {
+        if(mem_map[i] == 0xFFFFFFFF) continue;
+        
+        for(int j = 0; j < 32; ++j)
+        {
+            int bit = (i * 32) + j;
+            if(test_bit(bit) == 0)
+            {
+                set_bit(bit);
+                uint32_t physical_addr = bit * 4096;
+                return (void*)physical_addr;
+            }
+        }
+    }
+    return 0; // RAM full
+}
+
+void pmm_free_block(void* physical_addr)
+{
+    uint32_t bit = (uint32_t)physical_addr / 4096;
+    clear_bit(bit);
 }
