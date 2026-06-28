@@ -29,11 +29,6 @@ void kmain() {
 
     __asm__ volatile ("sti");
 
-    void* block = pmm_alloc_block();
-    print("Block Allocated\n");
-    pmm_free_block(block);
-    print("Block Released\n");
-
     shell_init();
     while (1);
 }
