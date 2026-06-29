@@ -35,7 +35,7 @@ osdev/
 |       |----- kernel_entry.asm 
 |       |----- kernel.c        # Custom C Kernel entry point
 |       |----- apps/           # Contains apps for OS (shell, etc.)
-|       |----- core/           # Contains core OS code (interrupts, pic, etc.)
+|       |----- interrupts/     # Contains code to handle Interrupts (idt, isr, pic)
 |       |----- drivers/        # Contains drivers (keyboard, vga, pit, etc.)
 |       |----- libc/           # Custom C library for the OS
 |       |----- mm/             # Memory Manager

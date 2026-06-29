@@ -1,6 +1,6 @@
 #pragma once
 #include <stdint.h>
-#include "../core/pic_c.h"
+#include "../interrupts/pic_c.h"
 
 void pit_init(uint32_t freq);
 void pit_handler();

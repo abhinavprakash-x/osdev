@@ -1,5 +1,7 @@
 #include "pit.h"
 
+extern void outb(uint16_t port, uint8_t data);
+
 static volatile uint32_t tick_count = 0;
 
 void pit_handler()

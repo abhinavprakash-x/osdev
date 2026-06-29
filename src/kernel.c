@@ -1,8 +1,8 @@
 #include "drivers/vga.h"
 #include "drivers/keyboard.h"
 #include "drivers/pit.h"
-#include "core/idt.h"
-#include "core/pic_c.h"
+#include "interrupts/idt.h"
+#include "interrupts/pic_c.h"
 #include "mm/pmm.h"
 
 extern void shell_init();
