@@ -9,7 +9,7 @@ extern void shell_init();
 
 void kmain() {
     clear_screen();
-    print("Welcome to OS\n");
+    print("Welcome to Bare Minimum OS\n");
 
     print("Initializing IDT...\n");
     idt_init();

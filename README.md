@@ -1,138 +1,78 @@
 # Bare Minimum OS
-32 bit x86 Operating System Project.
-Everything written from Scratch in C and x86 assembly.
+A 32-bit x86 Operating System Project. Everything is written from scratch in C and x86 assembly.
+![OS Screenshot](docs/vm1.png)
 
 ## Requirements:
 - binutils
-- Cross Compiler (elf-i386 gcc)
+- Cross Compiler (`i686-elf-gcc`)
 - NASM
-- linker
-- qemu (or other VM Software)
+- linker (`ld`)
+- QEMU (or other VM Software)
 
-## Setup:
+## 📖 Documentation and Setup:
+Detailed Setup instructions and Architecture Documentation is stored in `docs/` directory.
 
-### 1. Download Tools
+* **[Toolchain Setup](docs/toolchain_setup.md):** Step-by-step instructions for downloading, compiling, and installing the required `i686-elf` cross-compiler. **(Start here if you are building for the first time!)**
+* **[Architecture & Design](docs/architecture.md):** Details on the boot sequence, physical memory map, interrupt routing (IDT/PIC), and hardware I/O ports.
+
+## 🚀 Usage:
+This project uses a standard Makefile for easy building and testing.
 ```bash
-sudo apt update
-sudo apt install build-essential bison flex libgmp3-dev libmpc-dev libmpfr-dev texinfo wget git nasm qemu-system-x86
-
-wget https://ftp.gnu.org/gnu/binutils/binutils-2.41.tar.gz
-wget https://ftp.gnu.org/gnu/gcc/gcc-13.2.0/gcc-13.2.0.tar.gz
+make all        # Build the kernel and create boot.img
+make run        # Run the OS in QEMU
+make clean      # Delete Build Files
+make print      # For Debugging the Makefile
 ```
 
-### 2. Extract and Build
-```bash
-tar -xvf binutils-2.41.tar.gz
-tar -xvf gcc-13.2.0.tar.gz
-mkdir build-binutils
-mkdir build-gcc
-```
-
-```bash
-cd ~/osdev/build-binutils
-../binutils-2.41/configure \
-  --target=i686-elf --prefix="$HOME/osdev/cross" \
-  --disable-nls --disable-werror
-make -j$(nproc)
-make install
-
-cd ~/osdev/build-gcc
-../gcc-13.2.0/configure \
-  --target=i686-elf --prefix="$HOME/osdev/cross" \
-  --disable-nls --enable-languages=c --without-headers
-make all-gcc -j$(nproc)
-make all-target-libgcc -j$(nproc)
-```
-
-```bash
-make install-gcc
-make install-target-libgcc
-```
-
-### 3. Add to Path
-```bash
-echo 'export PATH="$HOME/osdev/cross/bin:$PATH"' >> ~/.bashrc
-source ~/.bashrc
-```
-
-## Usage:
-```bash
-make all    -> Build
-make run    -> Run in Qemu
-make clean  -> Delete Build Files
-make print  -> For Debug
-```
-
-## Folder Structure:
+## 📂 Folder Structure:
 ```
 osdev/
-|----- build/ compiled binaries
-|----- cross/ i686-elf-gcc toolchain
+|----- build/       # Compiled binaries and final boot.img
+|----- cross/       # i686-elf-gcc toolchain location
+|----- docs/        # Detailed project documentation and images
 |----- src/
-|       |----- bootloader.asm The Custom Bootloader
-|       |----- kernel_entry.asm
-|       |----- kernel.c Custom C Kernel
-|       |----- apps/ Contains apps for OS (shell, etc.)
-|       |----- core/ Contains core OS code (interrupts, etc.)
-|       |----- drivers/ Contains drivers (keyboard, vga, pit, etc.)
-|       |----- libc/ Custom C library for OS
-|       |----- mm/ Memory Manager
+|       |----- bootloader.asm  # The Custom Bootloader
+|       |----- kernel_entry.asm 
+|       |----- kernel.c        # Custom C Kernel entry point
+|       |----- apps/           # Contains apps for OS (shell, etc.)
+|       |----- core/           # Contains core OS code (interrupts, pic, etc.)
+|       |----- drivers/        # Contains drivers (keyboard, vga, pit, etc.)
+|       |----- libc/           # Custom C library for the OS
+|       |----- mm/             # Memory Manager
 |
-|----- linker.ld Linker file to link all binaries
-|----- Makefile Easy Build Commands
-|----- README.md Documentation
+|----- linker.ld    # Linker file to link all binaries
+|----- Makefile     # Easy Build Commands
+|----- README.md    # This file
 |----- LICENSE
 ```
 
-## Memory Mapping:
-```bash
-0x0000 BIOS
-0x5000 Memory Mapping (E820 interrupt)
-0x7C00 Bootloader
-0x8000 OS Code (Kernel, Memory Manager, Shell, etc.)
-0x90000 Interrupt Descriptor Table entries (IDT)
-0xA0000 Stack (grows downwards)
-0xB8000 VGA Text Mode Buffer
-```
-
-## Interrupts:
-ISR0 (DIvide by Zero)
-...
-(standard)
-...
-IRQ0 (PIT) -> ISR 32
-IRQ1 (PS/2 Keyboard) -> ISR 33
-
-## Ports:
-- `0x20`, `0x21` Command and Data Port for Master PIC
-- `0xA0`, `0xA1` Command and Data Port for Slave PIC
-- `0x40`, `0x43` Data Channel 0 and Command Register Port for PIT
-- `0x60` PS/2 Keyboard Port
-- `0x3D4`, `0x3D5` VGA CRT Control Register Port (Blinking Cursor Port)
-
-## Features Added:
-- Bootloader
-- Custom Kernel
-- Shell
+## ✨ Features Added:
+- Custom Bootloader
+- Custom C Kernel
+- Interactive Shell
 - Makefile build toolchain
 - Interrupt Descriptor Table (IDT)
-- Interrupt Service Routine (ISR)
+- Interrupt Service Routines (ISR)
 - Programmable Interrupt Controller (8259 PIC)
-- IRQ (Custom ISR)
+- Hardware IRQ Handling
 - PS/2 Keyboard Input Driver
 - VGA Text Buffer Mode Driver
 - Programmable Interval Timer (100Hz frequency)
-- Custom libc
-- Physical Memory Manager
+- Custom `libc`
+- Physical Memory Manager (Bitmap Allocator)
 
 ## Add Next:
-- printf()
-- paging
-- malloc and free
-- multitasking? sleep?
-- file system?
-- ring 3 user mode
-- fix documentation
+- `printf()`
+- Paging (Virtual Memory)
+- `malloc()` and `free()` (Kernel Heap)
+- Multitasking
+- `sleep()`
+- File System
+- Ring 3 User Mode
+- More Apps
+- (Maybe) GUI
 
 ## References:
 - [OSdev Wiki](https://wiki.osdev.org/)
+
+This project is open-source and licensed under the terms of the `LICENSE` file.
