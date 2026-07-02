@@ -60,13 +60,11 @@ osdev/
 - Programmable Interval Timer (100Hz frequency)
 - Custom `libc`
 - Physical Memory Manager (Bitmap Allocator)
+- Paging (Virtual Memory)
 
 ## Add Next:
-- `printf()`
-- Paging (Virtual Memory)
 - `malloc()` and `free()` (Kernel Heap)
 - Multitasking
-- `sleep()`
 - File System
 - Ring 3 User Mode
 - More Apps

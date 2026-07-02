@@ -45,3 +45,10 @@ Communication with hardware devices occurs via `inb` and `outb` on the following
 ## 5. Physical Memory Manager
 Note: This OS utilizes a **Bitmap Allocator** for managing physical RAM frames
 Using a bitmap is highly efficient for early kernel development. Every 4KB frame of memory is represented by a single bit. If a bit is `1`, the frame is in use; if `0`, it is free. The memory bounds are dynamically detected using BIOS interrupt `0x15, eax=0xE820` during the boot phase.
+
+## 6. Virtual Memory (Paging)
+To provide hardware-enforced memory isolation and protection, the kernel enables 32-bit Paging during initialization.
+
+* **Structure:** A two-level paging system is utilized, consisting of a single Page Directory (4KB) and multiple Page Tables (4KB). 
+* **Mapping:** Upon initialization, the kernel performs an "Identity Map" of the first 4MB of physical memory. This ensures that the kernel code, stack, and VGA buffer remain accessible at their standard virtual addresses after paging is enabled.
+* **Protection:** Any attempt to access memory beyond the initial 4MB without a valid Page Table entry triggers an Exception 14 (Page Fault), which is handled by the IDT to prevent corruption.
