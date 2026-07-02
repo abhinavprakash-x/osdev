@@ -1,5 +1,5 @@
 ASM = nasm
-CC  = gcc
+CC  = i686-elf-gcc
 LD  = ld
 
 SRC_DIR = src
