@@ -64,6 +64,7 @@ osdev/
 
 ## Add Next:
 - `malloc()` and `free()` (Kernel Heap)
+- Shell text Colour Change
 - Multitasking
 - File System
 - Ring 3 User Mode

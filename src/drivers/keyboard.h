@@ -1,5 +1,4 @@
 #pragma once
-#include "vga.h"
 #include <stdint.h>
 #include <stdbool.h>
 

@@ -1,18 +1,35 @@
+/*
+ * VGA Text Mode Driver
+ * Manages the 80x25 hardware text buffer at physical address 0xB8000.
+ * Handles hardware cursor updates, screen scrolling, and control characters.
+ */
+
 #include "vga.h"
+#include "../libc/mem.h"
+
+// Hardware I/O Ports for the VGA CRT Controller
+#define VGA_CTRL_REGISTER 0x3D4
+#define VGA_DATA_REGISTER 0x3D5
+#define VGA_OFFSET_LOW    0x0F
+#define VGA_OFFSET_HIGH   0x0E
+// Memory-mapped I/O address for VGA text mode
+#define VGA_MEM_ADDR      0xB8000
 
 extern void outb(uint16_t port, uint8_t data);
 extern uint8_t inb(uint16_t port);
 
-static volatile char* const video = (volatile char*)0xB8000;
+static volatile char* const video = (volatile char*)VGA_MEM_ADDR;
 static size_t row = 0;
 static size_t col = 0;
+// Default Color: Light Gray (0x7) on Black Background (0x0)
 static const char color = 0x07;
 
 void clear_screen(void)
 {
+    // A VGA character takes 2 bytes: [ASCII Char] [Color Attribute]
     for (size_t i = 0; i < VGA_WIDTH * VGA_HEIGHT; ++i)
     {
-        video[i * 2]     = ' ';
+        video[i * 2] = ' ';
         video[i * 2 + 1] = color;
     }
     row = 0;
@@ -29,7 +46,7 @@ void putchar(char c)
     }
     else if (c == '\t')
     {
-        col = (col + 4) & ~3;
+        col = (col + 4) & ~3; // Align to the next multiple of 4 using bitwise math
         if (col >= VGA_WIDTH)
         {
             col = 0;
@@ -65,7 +82,8 @@ void putchar(char c)
         }
     }
 
-if (row >= VGA_HEIGHT)
+    // Handle screen scrolling if we hit the bottom of the screen
+    if (row >= VGA_HEIGHT)
     {
         // Destination: The very start of video memory (Row 0)
         // Source: The start of Row 1 (video + VGA_WIDTH * 2 bytes)
@@ -97,6 +115,10 @@ void update_cursor()
     size_t index = row * VGA_WIDTH + col;
     uint8_t high = (index >> 8);
     uint8_t low = index & 0xff;
-    outb(0x3d4, 0x0f); outb(0x3d5, low);
-    outb(0x3d4, 0x0e); outb(0x3d5, high);
+
+    outb(VGA_CTRL_REGISTER, VGA_OFFSET_LOW); 
+    outb(VGA_DATA_REGISTER, low);
+
+    outb(VGA_CTRL_REGISTER, VGA_OFFSET_HIGH); 
+    outb(VGA_DATA_REGISTER, high);
 }

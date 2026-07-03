@@ -46,7 +46,6 @@ void isr_handler(registers_t *regs)
     if(regs->int_no == 32)
     {
         pit_handler();
-        outb(0x20, 0x20);
     }
     else if(regs->int_no == 33)
     {
