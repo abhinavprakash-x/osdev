@@ -1,66 +1,81 @@
-#include "pmm.h"
-
 /*
-Assume 4 GB Ram
-So 4 * 1024 * 1024 = 4194304 Kilo Bytes
-Since it is distributed in pages of size 4KB each
-Hence 4194304 / 4 = 1048576 blocks (each block of 4KB)
-Each block requires 1 bit to say if it's free or not
-So, array of 1048576 size is required, but one element
-can store 32 bits (if array type uint32_t) So, 1048576 / 32 = 32768
-*/
-uint32_t mem_map[32768];
+ * Physical Memory Manager (PMM)
+ * Manages physical RAM via a Bitmap. Keeps track of which 4KB frames 
+ * are free and which are in use by the kernel or hardware.
+ */
 
-void pmm_init()
-{
-    uint32_t entry_count = *(uint32_t*)0x5000;
+#include "pmm.h"
+#include "../libc/mem.h"
 
-    for(int i = 0; i < 32768; ++i)
-        mem_map[i] = 0xFFFFFFFF;
+// Architecture limits based on a 32-bit OS (Maximum 4GB RAM)
+#define PMM_BLOCK_SIZE     4096
+#define PMM_MAX_BLOCKS     1048576               // 4GB / 4KB
+#define PMM_BITMAP_SIZE    (PMM_MAX_BLOCKS / 32) // 32768 uint32_t entries
 
-    struct mem_map_entry* mmap = (struct mem_map_entry*)0x5004;
-    for(uint32_t i = 0; i < entry_count; ++i)
-    {
-        if(mmap[i].region_type == 1)
-        {
-            uint32_t start_frame = mmap[i].base_addr / 4096;
-            uint32_t num_frames = mmap[i].region_length / 4096;
-            for(uint32_t j = 0; j < num_frames; ++j) clear_bit(start_frame + j);
-        }
-    }
+// E820 Memory Map Constants
+#define E820_MEM_MAP_ADDR  0x5000
+#define E820_USABLE        1
 
-    //Protect the Kernel (mark starting 1 MegaByte as used (for kernel and vga memory etc.))
-    for(uint32_t i = 0; i < 256; ++i)
-        set_bit(i);
-}
+static uint32_t mem_map[32768];
 
-void set_bit(int bit)
+static void set_bit(int bit)
 {
     int idx = bit / 32;
     int bit_offset = bit % 32;
     mem_map[idx] = mem_map[idx] | (1 << bit_offset);
 }
 
-void clear_bit(int bit)
+static void clear_bit(int bit)
 {
     int idx = bit / 32;
     int bit_offset = bit % 32;
     mem_map[idx] &= ~(1 << bit_offset);
 }
 
-int test_bit(int bit)
+static int test_bit(int bit)
 {
     int idx = bit / 32;
     int bit_offset = bit % 32;
     return (mem_map[idx] & (1 << bit_offset)) != 0;
 }
 
-void* pmm_alloc_block()
+void pmm_init(void)
 {
-    for(int i = 0; i < 32768; ++i)
+    uint32_t entry_count = *(uint32_t*)E820_MEM_MAP_ADDR;
+
+    // Assume All Memory is in use
+    memset(mem_map, 0xFF, sizeof(mem_map));
+
+    struct mem_map_entry* mmap = (struct mem_map_entry*)(E820_MEM_MAP_ADDR + 4);
+
+    for(uint32_t i = 0; i < entry_count; ++i)
     {
+        // Region Type 1 means standard, usable RAM
+        if(mmap[i].region_type == E820_USABLE)
+        {
+            uint32_t start_frame = mmap[i].base_addr / PMM_BLOCK_SIZE;
+            uint32_t num_frames = mmap[i].region_length / PMM_BLOCK_SIZE;
+            // Mark these specific frames as available
+            for(uint32_t j = 0; j < num_frames; ++j) clear_bit(start_frame + j);
+        }
+    }
+
+    // Protect the first 1MB of memory (0x0 to 0xFFFFF).
+    // This is strictly reserved for the BIOS, VGA Buffer, and Kernel code.
+    // 1MB / 4KB = 256 blocks.
+    for(uint32_t i = 0; i < 256; ++i)
+        set_bit(i);
+}
+
+void* pmm_alloc_block(void)
+{
+    // Scan the bitmap looking for a free block
+    for(int i = 0; i < PMM_BITMAP_SIZE; ++i)
+    {
+        // If entire 32-bit chunk is occupied skip it
         if(mem_map[i] == 0xFFFFFFFF) continue;
         
+        // If any one bit is free (0). Find which one and Claim it
         for(int j = 0; j < 32; ++j)
         {
             int bit = (i * 32) + j;
@@ -72,11 +87,13 @@ void* pmm_alloc_block()
             }
         }
     }
-    return 0; // RAM full
+
+    // Kernel Panic condition: We are entirely out of physical RAM.
+    return 0;
 }
 
 void pmm_free_block(void* physical_addr)
 {
-    uint32_t bit = (uint32_t)physical_addr / 4096;
+    uint32_t bit = (uint32_t)physical_addr / PMM_BLOCK_SIZE;
     clear_bit(bit);
 }

@@ -12,7 +12,7 @@ start:
 
     mov [boot_drive], dl
 
-    ; print message
+    ; print loading message
     mov si, msg
     call print_string
 
@@ -66,16 +66,16 @@ disk_error:
 mem_map_start:
     mov di, 0x5004 ; map will be stored at 0x5000
     xor ebx, ebx
-    xor ebp, ebp ; count number of entries
+    xor ebp, ebp   ; ebp will count number of entries
 .loop:
     mov eax, 0xe820
     mov ecx, 24
     mov edx, 0x534d4150 ; magic number for SMAP
-    int 0x15 ; interrupt 0x15
-    jmp .done
+    int 0x15            ; interrupt 0x15
+    jc .done
 
     add di, 24 ; move pointer to next slot for next entry
-    inc ebp ; increment entry count
+    inc ebp    ; increment entry count
     cmp ebx, 0 ; if ebx = 0, list ended, exit
     jne .loop
 .done:
@@ -86,11 +86,11 @@ mem_map_start:
 ; GDT
 ; -------------------------
 gdt_start:
-    dq 0x0000000000000000
+    dq 0x0000000000000000 ; Null Descriptor
 gdt_code:
-    dq 0x00cf9a000000ffff
+    dq 0x00cf9a000000ffff ; Kernel Code Segment
 gdt_data:
-    dq 0x00cf92000000ffff
+    dq 0x00cf92000000ffff ; Kernel Data Segment
 gdt_end:
 
 gdt_descriptor:
@@ -102,11 +102,12 @@ gdt_descriptor:
 ; -------------------------
 [bits 32]
 protected_mode_start:
+    ; Point all data segments to the Kernel Data Segment (0x10)
     mov ax, 0x10
     mov ds, ax
     mov ss, ax
     mov es, ax
-    mov esp, 0xa0000
+    mov esp, 0xa0000 ; Stack Pointer at 0xA0000
     cli
     jmp 0x08:0x8000
 
@@ -125,7 +126,7 @@ align 4
 DAP:
     db 0x10             ; Size of this packet (always 16 bytes)
     db 0                ; Always 0
-    dw 30                ; Number of sectors to read (your kernel size)
+    dw 30               ; Number of sectors to read (15KB Kernel)
     dw 0x8000           ; Memory Offset to load to
     dw 0x0000           ; Memory Segment to load to (0:0x8000)
     dq 1                ; LBA address to start reading from (Sector 1)

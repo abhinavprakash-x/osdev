@@ -1,14 +1,20 @@
+[bits 32]
+
 global load_page_directory
+; void load_page_directory(uint32_t* dir);
+
 load_page_directory:
     push ebp
     mov ebp, esp
-    mov eax, [ebp+8]
-    mov cr3, eax       ; Load the page directory address into CR3
+    mov eax, [ebp+8]   ; Grab the pointer to the page directory
+    mov cr3, eax       ; Load it into the CPU's Page Directory Base Register (CR3)
     mov esp, ebp
     pop ebp
     ret
 
 global enable_paging
+; void enable_paging();
+
 enable_paging:
     push ebp
     mov ebp, esp

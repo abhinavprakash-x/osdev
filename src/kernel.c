@@ -1,3 +1,9 @@
+/*
+ * Kernel Entry Point
+ * Initializes hardware drivers, sets up interrupts, configures memory 
+ * management, and hands control over to the interactive shell.
+ */
+
 #include "drivers/vga.h"
 #include "drivers/keyboard.h"
 #include "drivers/pit.h"
@@ -5,35 +11,43 @@
 #include "interrupts/pic_c.h"
 #include "mm/pmm.h"
 #include "mm/paging.h"
+#include "libc/stdlib.h"
 
-extern void shell_init();
+extern void shell_init(void);
 
-void kmain() {
+void kmain(void)
+{
     clear_screen();
-    print("Welcome to Bare Minimum OS\n");
+    printf("Welcome to Bare Minimum OS\n");
 
-    print("Initializing IDT...\n");
+    printf("Initializing IDT...\n");
     idt_init();
-    print("Sucessfully Initialized\n");
+    printf("Sucessfully Initialized\n");
 
-    print("Initializing PIC...\n");
+    printf("Initializing PIC...\n");
     pic_init();
-    print("Sucessfully Initialized\n");
+    printf("Sucessfully Initialized\n");
 
-    print("Initializing PIT...\n");
+    printf("Initializing PIT...\n");
     pit_init(100);
-    print("Successfully Initialized with frequency of 100 ticks/second\n");
+    printf("Successfully Initialized with frequency of 100 Hz\n");
 
-    print("Initializing PMM...\n");
+    printf("Initializing PMM...\n");
     pmm_init();
-    print("Successfully Initialized\n");
+    printf("Successfully Initialized\n");
 
-    print("Enabling Paging...\n");
+    printf("Enabling Paging...\n");
     paging_init();
-    print("Successfully Enabled\n");
+    printf("Successfully Enabled\n");
 
+    // Enable Interrupts
     __asm__ volatile ("sti");
 
+    // Launch Shell
     shell_init();
-    while (1);
+
+    while (1)
+    {
+        __asm__ volatile ("hlt");
+    }
 }

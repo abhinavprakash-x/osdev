@@ -1,4 +1,12 @@
+/*
+ * Custom C Standard Library (stdlib)
+ * Provides fundamental string formatting, conversion utilities, and our 
+ * custom printf implementation using GCC built-in variadic macros.
+ */
+
 #include "stdlib.h"
+#include "string.h"
+#include "../drivers/vga.h"
 
 typedef __builtin_va_list va_list;
 #define va_start(ap, param) __builtin_va_start(ap, param)
@@ -52,6 +60,7 @@ int atoi(const char* str)
     int sign = 1;
     int i = 0;
 
+    // Skip leading whitespaces
     while (str[i] == ' ') i++;
 
     if (str[i] == '-' || str[i] == '+')
@@ -95,6 +104,7 @@ uint32_t xtoi(const char* str)
     uint32_t result = 0;
     int i = 0;
 
+    // Skip the '0x' prefix
     if (str[i] == '0' && (str[i+1] == 'x' || str[i+1] == 'X')) {
         i += 2;
     }
@@ -145,12 +155,30 @@ void printf(const char* format, ...)
                 case 's':
                 {
                     char* val = va_arg(args, char*);
-                    print(val);
+                    if (val == 0) { // Protect against null pointer dereference
+                        print("(null)");
+                    } else {
+                        print(val);
+                    }
+                    break;
+                }
+                case 'c':
+                {
+                    // Chars are promoted to ints when passed through variadic arguments
+                    char val = (char)va_arg(args, int);
+                    putchar(val);
                     break;
                 }
                 case '%':
                 {
                     putchar('%');
+                    break;
+                }
+                default:
+                {
+                    // If we don't recognize the format, just print the raw characters
+                    putchar('%');
+                    putchar(format[i]);
                     break;
                 }
             }
