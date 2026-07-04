@@ -110,7 +110,7 @@ void print(const char* s)
     }
 }
 
-void update_cursor()
+void update_cursor(void)
 {
     size_t index = row * VGA_WIDTH + col;
     uint8_t high = (index >> 8);

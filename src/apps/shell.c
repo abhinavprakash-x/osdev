@@ -14,14 +14,14 @@
 static char buffer[256];
 static int buffer_index = 0;
 
-void shell_init() 
+void shell_init(void) 
 {
     memset(buffer, 0, 256); 
     printf("Welcome to the OS Shell!\n");
     printf("OS> ");
 }
 
-void execute_command()
+void execute_command(void)
 {
     if(strlen(buffer) == 0)
     {
@@ -132,7 +132,7 @@ void shell_input(char c)
     }
 }
 
-void shell_clear_screen()
+void shell_clear_screen(void)
 {
     clear_screen();
     memset(buffer, 0, 256);

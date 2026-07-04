@@ -5,7 +5,7 @@
 global isr%1
 isr%1:
     cli
-    push 0      ; Push a dummy error code to keep stack uniform
+    push 0      ; Push a dummy error code to keep stack uniform with registers_t
     push %1     ; Push the interrupt number
     jmp isr_common_stub
 %endmacro
@@ -54,15 +54,19 @@ ISR_NOERRCODE 28
 ISR_NOERRCODE 29
 ISR_NOERRCODE 30
 ISR_NOERRCODE 31
+
+; Hardware IRQs
 ISR_NOERRCODE 32
 ISR_NOERRCODE 33
 
-; The C function we will call
+; The C function we will call in `isr_c.c`
 extern isr_handler
 
-; This is our common handler stub
+; This is our common handler stub. It saves the CPU state, sets up the 
+; kernel environment, calls C, and then restores the exact CPU state.
+
 isr_common_stub:
-    pushad          ; Push all general purpose registers (edi, esi, ebp, esp, ebx, edx, ecx, eax)
+    pushad          ; Push edi, esi, ebp, esp, ebx, edx, ecx, eax
     
     mov ax, ds      ; Save the current data segment to the stack
     push eax        
@@ -73,7 +77,7 @@ isr_common_stub:
     mov fs, ax
     mov gs, ax
 
-    push esp
+    push esp        ; Pass a pointer to the stack (registers_t) to the C function
     call isr_handler ; Jump into C!
     add esp, 4
 

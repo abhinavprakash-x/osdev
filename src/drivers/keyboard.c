@@ -13,7 +13,7 @@
 #define PIC_EOI            0x20
 
 extern void shell_input(char c);
-extern void shell_clear_screen();
+extern void shell_clear_screen(void);
 
 // 1D array mapping Scancode Set 1 to lowercase ASCII characters
 const char keyboard_map[128] = {
@@ -52,7 +52,7 @@ const char keyboard_map_shift[128] = {
 static bool shift_pressed = false;
 static bool caps_lock = false;
 
-void keyboard_handler() 
+void keyboard_handler(void) 
 {
     uint8_t scancode = inb(KEYBOARD_DATA_PORT);
 

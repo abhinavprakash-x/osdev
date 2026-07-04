@@ -1,6 +1,13 @@
+/*
+ * Interrupt Descriptor Table (IDT) setup.
+ * Maps CPU exceptions (0-31) and hardware interrupts (32+) to their 
+ * respective Interrupt Service Routines (ISRs).
+ */
+
 #include "idt.h"
 
 #define IDT_ENTRIES 256
+#define IDT_PHYSICAL_ADDR 0x90000
 
 extern void idt_load(uint32_t);
 
@@ -15,27 +22,32 @@ extern void isr24(); extern void isr25(); extern void isr26(); extern void isr27
 extern void isr28(); extern void isr29(); extern void isr30(); extern void isr31();
 extern void isr32(); extern void isr33();
 
-static struct idt_entry* idt = (struct idt_entry*)0x90000;
+static struct idt_entry* idt = (struct idt_entry*)IDT_PHYSICAL_ADDR;
 static struct idt_ptr idtp;
 
-static void set_idt_gate(int n, uint32_t handler) {
+static void set_idt_gate(int n, uint32_t handler)
+{
     idt[n].offset_low  = handler & 0xFFFF;
-    idt[n].selector    = 0x08;
+    idt[n].selector    = 0x08;  // 0x08 is the offset of the Kernel Code Segment in the GDT
     idt[n].zero        = 0;
-    idt[n].type_attr   = 0x8E;
+    idt[n].type_attr   = 0x8E;  // 0x8E breaks down to: 10001110 
+    // where 1 (Present) | 00 (Ring 0 Privilege) | 0 (Storage Segment) | 1110 (32-bit Interrupt Gate)
     idt[n].offset_high = (handler >> 16) & 0xFFFF;
 }
 
-void idt_init() {
+void idt_init(void)
+{
     idtp.limit = (sizeof(struct idt_entry) * IDT_ENTRIES) - 1;
     idtp.base  = (uint32_t)idt;
 
     for (int i = 0; i < IDT_ENTRIES; i++) {
-        idt[i].offset_low = 0; idt[i].offset_high = 0;
-        idt[i].selector = 0; idt[i].type_attr = 0;
+        idt[i].offset_low = 0;
+        idt[i].offset_high = 0;
+        idt[i].selector = 0;
+        idt[i].type_attr = 0;
     }
 
-    // Set all 32 exception gates
+    // Map the 32 standard CPU Exceptions
     set_idt_gate(0, (uint32_t)isr0); set_idt_gate(1, (uint32_t)isr1);
     set_idt_gate(2, (uint32_t)isr2); set_idt_gate(3, (uint32_t)isr3);
     set_idt_gate(4, (uint32_t)isr4); set_idt_gate(5, (uint32_t)isr5);
@@ -52,7 +64,11 @@ void idt_init() {
     set_idt_gate(26, (uint32_t)isr26); set_idt_gate(27, (uint32_t)isr27);
     set_idt_gate(28, (uint32_t)isr28); set_idt_gate(29, (uint32_t)isr29);
     set_idt_gate(30, (uint32_t)isr30); set_idt_gate(31, (uint32_t)isr31);
-    set_idt_gate(32, (uint32_t)isr32); set_idt_gate(33, (uint32_t)isr33);
 
+    // Map the hardware IRQs
+    set_idt_gate(32, (uint32_t)isr32);  // IRQ0: PIT
+    set_idt_gate(33, (uint32_t)isr33);  // IRQ1: PS/2 Keyboard
+
+    // Tell the CPU where the IDT is located using `idt_load.asm`
     idt_load((uint32_t)&idtp);
 }

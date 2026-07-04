@@ -5,8 +5,8 @@
 #define VGA_WIDTH 80
 #define VGA_HEIGHT 25
 
-void clear_screen();
-void update_cursor();
+void clear_screen(void);
+void update_cursor(void);
 
 void putchar(char c);
 void print(const char* c);

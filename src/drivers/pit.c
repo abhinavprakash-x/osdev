@@ -19,7 +19,7 @@ extern void outb(uint16_t port, uint8_t data);
 static volatile uint32_t tick_count = 0;
 static uint32_t timer_freq = 0;
 
-void pit_handler()
+void pit_handler(void)
 {
     tick_count++;
     outb(PIC1_COMMAND, PIC_EOI);
@@ -40,7 +40,7 @@ void pit_init(uint32_t freq)
     outb(PIT_CHANNEL0_PORT, high);
 }
 
-uint32_t get_ticks()
+uint32_t get_ticks(void)
 {
     return tick_count;
 }
@@ -56,6 +56,6 @@ void sleep(uint32_t milliseconds)
     // Halt the CPU until the target tick is reached hlt puts CPU into a
     // Low power state until any interrupt fires.
     while (tick_count < target_ticks) {
-        __asm__ volatile("hlt"); 
+        __asm__ volatile("hlt");
     }
 }
