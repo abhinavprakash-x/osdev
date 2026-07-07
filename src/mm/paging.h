@@ -14,3 +14,4 @@ extern void load_page_directory(uint32_t* dir);
 extern void enable_paging(void);
 
 void paging_init(void);
+void map_page(uint32_t virtual_addr, uint32_t physical_addr);
