@@ -58,3 +58,68 @@ void map_page(uint32_t virtual_addr, uint32_t physical_addr)
 
     __asm__ volatile ("invlpg (%0)" : : "b"(virtual_addr) : "memory");
 }
+
+void unmap_page(uint32_t virtual_addr)
+{
+    uint32_t page_dir_idx = (virtual_addr >> 22) & 0x3FF;
+    uint32_t page_table_idx = (virtual_addr >> 12) & 0x3FF;
+
+    // Access the Page Directory using the recursive pointer
+    uint32_t* v_page_dir = (uint32_t*)0xFFFFF000;
+
+    // If the directory entry isn't present, the page is already unmapped
+    if((v_page_dir[page_dir_idx] & PTE_PRESENT) == 0) {
+        return; 
+    }
+    
+    uint32_t* pt = (uint32_t*)(0xFFC00000 + (page_dir_idx * PAGE_SIZE));
+    pt[page_table_idx] = 0;
+
+    __asm__ volatile ("invlpg (%0)" : : "b"(virtual_addr) : "memory");
+}
+
+uint32_t get_physical_addr(uint32_t virtual_addr)
+{
+// 1. Get the indices
+    uint32_t page_dir_idx = (virtual_addr >> 22) & 0x3FF;
+    uint32_t page_table_idx = (virtual_addr >> 12) & 0x3FF;
+
+    // 2. Access the Page Directory using the recursive pointer
+    uint32_t* v_page_dir = (uint32_t*)0xFFFFF000;
+
+    // 3. If the directory entry isn't present, the page is already unmapped
+    if((v_page_dir[page_dir_idx] & PTE_PRESENT) == 0) {
+        return; 
+    }
+
+    // 4. Get a virtual pointer to the specific Page Table
+    uint32_t* pt = (uint32_t*)(0xFFC00000 + (page_dir_idx * PAGE_SIZE));
+
+    // 5. Clear the Page Table Entry
+    pt[page_table_idx] = 0;
+
+    // 6. Flush the TLB so the CPU knows the page is gone
+    __asm__ volatile ("invlpg (%0)" : : "b"(virtual_addr) : "memory");
+}
+
+uint32_t get_physical_addr(uint32_t virtual_addr)
+{
+    uint32_t page_dir_idx = (virtual_addr >> 22) & 0x3FF;
+    uint32_t page_table_idx = (virtual_addr >> 12) & 0x3FF;
+    uint32_t offset = virtual_addr & 0xFFF; 
+
+    uint32_t* v_page_dir = (uint32_t*)0xFFFFF000;
+    if((v_page_dir[page_dir_idx] & PTE_PRESENT) == 0) {
+        return 0; // Page is not mapped
+    }
+
+    uint32_t* pt = (uint32_t*)(0xFFC00000 + (page_dir_idx * PAGE_SIZE));
+
+    if((pt[page_table_idx] & PTE_PRESENT) == 0) {
+        return 0; // Page is not mapped
+    }
+
+
+    uint32_t physical_frame = pt[page_table_idx] & 0xFFFFF000;
+    return physical_frame + offset;
+}
