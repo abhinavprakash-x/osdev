@@ -12,6 +12,7 @@
 #include "mm/pmm.h"
 #include "mm/paging.h"
 #include "libc/stdlib.h"
+#include "mm/heap.h"
 
 extern void shell_init(void);
 
@@ -39,6 +40,10 @@ void kmain(void)
     printf("Enabling Paging...\n");
     paging_init();
     printf("Successfully Enabled\n");
+
+    printf("Initializing Heap...\n");
+    heap_init();
+    printf("Successfully Initialized\n");
 
     // Enable Interrupts
     __asm__ volatile ("sti");
