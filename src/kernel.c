@@ -48,20 +48,6 @@ void kmain(void)
     // Enable Interrupts
     __asm__ volatile ("sti");
 
-    // Test 1: Allocate memory
-    uint32_t* test_ptr = (uint32_t*)kmalloc(sizeof(uint32_t) * 10);
-    printf("Memory Allocated Successfully at virtual address: 0x%x\n", (uint32_t)test_ptr);
-    printf("Physical address: 0x%x\n", get_physical_addr((uint32_t)test_ptr));
-
-    // Test 2: Write to the memory (if it doesn't crash, paging & the heap work!)
-    for(int i = 0; i < 10; i++) {
-        test_ptr[i] = 0xABCD; 
-    }
-    printf("Successfully wrote to dynamically allocated memory!\n");
-
-    // Test 3: Free it
-    kfree(test_ptr);
-    printf("Successfully freed memory!\n");
 
     // Launch Shell
     shell_init();

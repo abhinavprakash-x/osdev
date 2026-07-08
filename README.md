@@ -61,9 +61,9 @@ osdev/
 - Custom `libc`
 - Physical Memory Manager (Bitmap Allocator)
 - Paging (Virtual Memory)
+- `malloc()` and `free()` (Kernel Heap)
 
 ## Add Next:
-- `malloc()` and `free()` (Kernel Heap)
 - Shell text Colour Change
 - Multitasking
 - File System
