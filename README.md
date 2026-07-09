@@ -1,6 +1,52 @@
 # Bare Minimum OS
-A 32-bit x86 Operating System Project. Everything is written from scratch in C and x86 assembly.
-![OS Screenshot](docs/vm1.png)
+A hobby 32-bit x86 operating system written entirely from scratch in C and x86 Assembly.
+
+## ✨ Current Features
+
+- [x] Custom BIOS Bootloader
+- [x] 32-bit Protected Mode
+- [x] Global Descriptor Table (GDT)
+- [x] Interrupt Descriptor Table (IDT)
+- [x] Interrupt Service Routines (ISR)
+- [x] Hardware IRQ Handling
+- [x] 8259 PIC Remapping
+- [x] Programmable Interval Timer (100 Hz)
+- [x] Basic Kernel Shell
+- [x] PS/2 Keyboard Driver
+- [x] VGA Text Mode Driver
+- [x] Automated Makefile Build
+- [x] Custom libc
+- [x] Physical Memory Manager
+- [x] Paging (Virtual Memory)
+- [x] Recursive Page Directory Mapping
+- [x] Kernel Heap (`kmalloc` / `kfree`)
+
+## 🚀 Roadmap
+
+### Core Kernel
+
+- [ ] Scheduler
+- [ ] Kernel Threads
+- [ ] Ring 3 User Mode
+- [ ] TSS
+- [ ] System Calls
+
+### Storage
+
+- [ ] ATA Driver
+- [ ] FAT32
+- [ ] Virtual File System
+
+### Future
+
+- [ ] ELF Loader
+- [ ] x86-64 Support (Maybe)
+- [ ] UEFI Boot
+- [ ] GUI (Maybe)
+
+## Screenshots / GIFs
+
+![](docs/vm1.png)
 
 ## Requirements:
 - binutils
@@ -45,31 +91,6 @@ osdev/
 |----- README.md    # This file
 |----- LICENSE
 ```
-
-## ✨ Features Added:
-- Custom Bootloader
-- Custom C Kernel
-- Interactive Shell
-- Makefile build toolchain
-- Interrupt Descriptor Table (IDT)
-- Interrupt Service Routines (ISR)
-- Programmable Interrupt Controller (8259 PIC)
-- Hardware IRQ Handling
-- PS/2 Keyboard Input Driver
-- VGA Text Buffer Mode Driver
-- Programmable Interval Timer (100Hz frequency)
-- Custom `libc`
-- Physical Memory Manager (Bitmap Allocator)
-- Paging (Virtual Memory)
-- `malloc()` and `free()` (Kernel Heap)
-
-## Add Next:
-- Shell text Colour Change
-- Multitasking
-- File System
-- Ring 3 User Mode
-- More Apps
-- (Maybe) GUI
 
 ## References:
 - [OSdev Wiki](https://wiki.osdev.org/)
