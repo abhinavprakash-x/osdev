@@ -20,6 +20,7 @@ A hobby 32-bit x86 operating system written entirely from scratch in C and x86 A
 - [x] Paging (Virtual Memory)
 - [x] Recursive Page Directory Mapping
 - [x] Kernel Heap (`kmalloc` / `kfree`)
+- [x] Test Suite
 
 ## 🚀 Roadmap
 
@@ -47,6 +48,7 @@ A hobby 32-bit x86 operating system written entirely from scratch in C and x86 A
 ## Screenshots / GIFs
 
 ![](docs/vm1.png)
+![](docs/vm2.png)
 
 ## Requirements:
 - binutils

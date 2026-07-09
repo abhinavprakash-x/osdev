@@ -10,6 +10,7 @@
 #include "../libc/mem.h"
 #include "../libc/stdlib.h"
 #include "../drivers/pit.h"
+#include "kernel_tests.h"
 
 static char buffer[256];
 static int buffer_index = 0;
@@ -79,19 +80,23 @@ void execute_command(void)
             {
                 if (num2 == 0)
                 {
-                    print("Error: Division by zero\n");
+                    printf("Error: Division by zero\n");
                     error = 1;
                 }
                 else result = num1 / num2;
             }
             if(!error) printf("%d\n", result);
         }
-        else print("Error: Invalid syntax. Use format: calc 5+3\n");
+        else printf("Error: Invalid syntax. Use format: calc 5+3\n");
     }
     else if (strcmp(buffer, "time") == 0)
     {
         // PIT runs at 100Hz, so ticks / 100 = seconds
         printf("Seconds since boot: %d\n", get_ticks() / 100);
+    }
+    else if (strcmp(buffer, "test") == 0)
+    {
+        test_all();
     }
     else
     {
@@ -101,14 +106,14 @@ void execute_command(void)
     // Clear the buffer for next command
     memset(buffer, 0, 256);
     buffer_index = 0;
-    print("OS> ");
+    printf("OS> ");
 }
 
 void shell_input(char c)
 {
     if (c == '\n')
     {
-        print("\n");
+        printf("\n");
         buffer[buffer_index] = '\0';
         execute_command();
     }
