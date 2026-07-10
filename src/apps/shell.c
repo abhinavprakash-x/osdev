@@ -41,6 +41,7 @@ void execute_command(void)
         printf("echo <string>: Prints string on console\n");
         printf("calc <eqn>: Calculator\n");
         printf("time: Shows Seconds since last boot\n");
+        printf("test: Runs the Test Suite\n");
     }  
     else if (strncmp(buffer, "echo ", 5) == 0)
     {
@@ -94,9 +95,13 @@ void execute_command(void)
         // PIT runs at 100Hz, so ticks / 100 = seconds
         printf("Seconds since boot: %d\n", get_ticks() / 100);
     }
-    else if (strcmp(buffer, "test") == 0)
+    else if (strncmp(buffer, "test", 4) == 0)
     {
-        test_all();
+        if(strcmp(buffer, "test") == 0 || strcmp(buffer, "test all") == 0) test_all();
+        else if(strcmp(buffer, "test string") == 0) test_string();
+        else if(strcmp(buffer, "test stdlib") == 0) test_stdlib();
+        else if(strcmp(buffer, "test memory") == 0) test_memory();
+        else printf("Unknown test suite.\n");
     }
     else
     {

@@ -45,6 +45,14 @@ uint32_t get_ticks(void)
     return tick_count;
 }
 
+uint32_t ticks_to_ms(uint32_t ticks)
+{
+    if (timer_freq == 0)
+        return 0;
+
+    return (ticks * 1000) / timer_freq;
+}
+
 void sleep(uint32_t milliseconds)
 {
     if (timer_freq == 0) return;

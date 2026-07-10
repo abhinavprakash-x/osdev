@@ -48,7 +48,6 @@ void kmain(void)
     // Enable Interrupts
     __asm__ volatile ("sti");
 
-
     // Launch Shell
     shell_init();
 
