@@ -17,6 +17,7 @@
 #define E820_USABLE        1
 
 static uint32_t mem_map[32768];
+static int used_blocks = 0;
 
 static void set_bit(int bit)
 {
@@ -83,6 +84,7 @@ void* pmm_alloc_block(void)
             {
                 set_bit(bit);
                 uint32_t physical_addr = bit * 4096;
+                used_blocks++;
                 return (void*)physical_addr;
             }
         }
@@ -96,4 +98,10 @@ void pmm_free_block(void* physical_addr)
 {
     uint32_t bit = (uint32_t)physical_addr / PMM_BLOCK_SIZE;
     clear_bit(bit);
+    used_blocks--;
+}
+
+int get_used_memory(void)
+{
+    return used_blocks;
 }

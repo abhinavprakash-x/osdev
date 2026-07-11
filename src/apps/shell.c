@@ -11,6 +11,8 @@
 #include "../libc/stdlib.h"
 #include "../drivers/pit.h"
 #include "kernel_tests.h"
+#include "../mm/pmm.h"
+#include "../mm/heap.h"
 
 static char buffer[256];
 static int buffer_index = 0;
@@ -102,6 +104,108 @@ void execute_command(void)
         else if(strcmp(buffer, "test stdlib") == 0) test_stdlib();
         else if(strcmp(buffer, "test memory") == 0) test_memory();
         else printf("Unknown test suite.\n");
+    }
+    else if (strcmp(buffer, "meminfo") == 0)
+    {
+        printf("Used Memory: %d Bytes\n", get_used_memory() * 4096);
+    }
+    else if (strncmp(buffer, "alloc ", 6) == 0)
+    {
+        char* buf = buffer + 6;
+        int* ptr = (int*)kmalloc(atoi(buf));
+        char buf2[32];
+        itox((int)ptr, buf2);
+        printf("%d Bytes Allocated at Address 0x%s \n", atoi(buf), buf2);
+    }
+    else if(strncmp(buffer, "free ", 5) == 0)
+    {
+        char* buf = buffer + 5;
+        int addr = xtoi(buf);
+        kfree((void*)addr);
+        printf("Memory Freed Successfully.\n");
+    }
+    else if (strncmp(buffer, "peek ", 5) == 0)
+    {
+        char* arg = buffer + 5;
+        uint32_t addr = (uint32_t)xtoi(arg);
+        uint32_t* ptr = (uint32_t*)addr;
+        
+        char val_str[32];
+        itox(*ptr, val_str);
+        printf("Value at 0x%s is: 0x%s\n", arg, val_str);
+    }
+    else if (strncmp(buffer, "poke ", 5) == 0)
+    {
+        char* arg = buffer + 5;
+        int i = 0;
+        
+        // Find the space separating the address and the value
+        while(arg[i] != ' ' && arg[i] != '\0') 
+        {
+            i++;
+        }
+        
+        if (arg[i] == ' ') 
+        {
+            arg[i] = '\0';
+            char* val_arg = &arg[i + 1];
+            
+            uint32_t addr = (uint32_t)xtoi(arg);
+            uint32_t val = (uint32_t)xtoi(val_arg);
+            
+            uint32_t* ptr = (uint32_t*)addr;
+            *ptr = val;
+            
+            printf("Successfully poked memory.\n");
+        } 
+        else 
+        {
+            printf("Syntax: poke <address> <value>\n");
+        }
+    }
+    else if (strcmp(buffer, "cpuinfo") == 0)
+    {
+        uint32_t ebx, edx, ecx;
+        
+        // Fire the CPUID instruction
+        __asm__ volatile (
+            "cpuid"
+            : "=b"(ebx), "=d"(edx), "=c"(ecx)
+            : "a"(0)
+        );
+        
+        char vendor[13];
+        *(uint32_t*)&vendor[0] = ebx;
+        *(uint32_t*)&vendor[4] = edx;
+        *(uint32_t*)&vendor[8] = ecx;
+        vendor[12] = '\0'; // Null terminate
+        
+        printf("CPU Vendor: %s\n", vendor);
+    }
+    else if (strncmp(buffer, "crash ", 6) == 0)
+    {
+        char* arg = buffer + 6;
+        if (strcmp(arg, "div0") == 0) 
+        {
+            int a = 1; 
+            volatile int b = 0; 
+            a = a / b; // Triggers Exception 0
+        } 
+        else if (strcmp(arg, "page") == 0) 
+        {
+            volatile uint32_t* bad_ptr = (uint32_t*)0xFFFFFFFF;
+            *bad_ptr = 0xBAD; // Triggers Exception 14
+        } 
+        else 
+        {
+            printf("Syntax: crash <div0|page>\n");
+        }
+    }
+    else if (strcmp(buffer, "reboot") == 0)
+    {
+        printf("Rebooting system...\n");
+        // Send command 0xFE to the Keyboard Controller port 0x64
+        __asm__ volatile ("outb %1, %0" : : "dN" ((uint16_t)0x64), "a" ((uint8_t)0xFE));
     }
     else
     {
