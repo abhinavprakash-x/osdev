@@ -6,6 +6,7 @@
 
 #include "vga.h"
 #include "../libc/mem.h"
+#include "port_io.h"
 
 // Hardware I/O Ports for the VGA CRT Controller
 #define VGA_CTRL_REGISTER 0x3D4
@@ -14,9 +15,6 @@
 #define VGA_OFFSET_HIGH   0x0E
 // Memory-mapped I/O address for VGA text mode
 #define VGA_MEM_ADDR      0xB8000
-
-extern void outb(uint16_t port, uint8_t data);
-extern uint8_t inb(uint16_t port);
 
 static volatile char* const video = (volatile char*)VGA_MEM_ADDR;
 static size_t row = 0;

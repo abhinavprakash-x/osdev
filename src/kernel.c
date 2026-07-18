@@ -8,7 +8,7 @@
 #include "drivers/keyboard.h"
 #include "drivers/pit.h"
 #include "interrupts/idt.h"
-#include "interrupts/pic_c.h"
+#include "interrupts/pic.h"
 #include "mm/pmm.h"
 #include "mm/paging.h"
 #include "libc/stdlib.h"

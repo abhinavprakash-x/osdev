@@ -5,6 +5,7 @@
  */
 
 #include "pit.h"
+#include "port_io.h"
 
 // Hardware I/O Ports
 #define PIT_CMD_PORT      0x43
@@ -13,8 +14,6 @@
 #define PIC_EOI           0x20
 // Internal Clock Frequency of the PIT chip (1.193182 MHz)
 #define PIT_BASE_FREQ     1193180
-
-extern void outb(uint16_t port, uint8_t data);
 
 static volatile uint32_t tick_count = 0;
 static uint32_t timer_freq = 0;

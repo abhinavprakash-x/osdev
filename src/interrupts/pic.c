@@ -4,10 +4,8 @@
  * do not collide with CPU exceptions (like page faults).
  */
 
-#include "pic_c.h"
-
-extern void outb(uint16_t port, uint8_t data);
-extern uint8_t inb(uint16_t port);
+#include "pic.h"
+#include "../drivers/port_io.h"
 
 void pic_init(void)
 {
