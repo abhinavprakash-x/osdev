@@ -15,6 +15,7 @@
 #include "mm/heap.h"
 
 extern void shell_init(void);
+extern void shell_input(char c);
 
 void kmain(void)
 {
@@ -53,6 +54,8 @@ void kmain(void)
 
     while (1)
     {
-        __asm__ volatile ("hlt");
+        char c = keyboard_get_char();
+        if (c != 0) shell_input(c);
+        else __asm__ volatile ("hlt");
     }
 }

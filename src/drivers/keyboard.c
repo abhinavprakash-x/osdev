@@ -12,6 +12,10 @@
 #define PIC1_COMMAND       0x20
 #define PIC_EOI            0x20
 
+volatile char keyboard_buffer[256];
+volatile int buffer_head = 0;
+volatile int buffer_tail = 0;
+
 extern void shell_input(char c);
 extern void shell_clear_screen(void);
 
@@ -76,9 +80,18 @@ void keyboard_handler(void)
                 }
             }
             if (c != 0) {
-                shell_input(c);
+                keyboard_buffer[buffer_head] = c;
+                buffer_head = (buffer_head + 1) % 256;
             }
         }
     }
     outb(PIC1_COMMAND, PIC_EOI); 
+}
+
+char keyboard_get_char(void) {
+    if (buffer_head == buffer_tail) return 0; // Buffer is empty
+    
+    char c = keyboard_buffer[buffer_tail];
+    buffer_tail = (buffer_tail + 1) % 256;
+    return c;
 }
