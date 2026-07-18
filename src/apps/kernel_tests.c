@@ -256,9 +256,9 @@ void test_heap(void)
 {
     printf("[Kernel Heap]\n");
 
+    // --- 1. Basic Allocation & Overlap ---
     void *a = kmalloc(32);
     void *b = kmalloc(64);
-
     assert_true(a != 0, "kmalloc(32)");
     assert_true(b != 0, "kmalloc(64)");
     assert_true(a != b, "kmalloc(unique)");
@@ -269,6 +269,44 @@ void test_heap(void)
 
     kfree(a);
     kfree(b);
+
+    // --- 2. Alignment Test ---
+    void *c = kmalloc(3); 
+    heap_block_t *block_c = (heap_block_t*)((uint8_t*)c - sizeof(heap_block_t));
+    assert_true(block_c->size >= 8 && (block_c->size % 8 == 0), "heap(8-byte alignment)");
+
+    // --- 3. Block Splitting Test ---
+    void *d = kmalloc(16);
+    heap_block_t *block_d = (heap_block_t*)((uint8_t*)d - sizeof(heap_block_t));
+    assert_true(block_d->next != 0, "heap(block split exists)");
+    assert_true(block_d->next->is_free == 1, "heap(split block is free)");
+
+    // --- 4. Block Reuse Test ---
+    void *e1 = kmalloc(128);
+    kfree(e1);
+    void *e2 = kmalloc(128);
+    assert_true(e1 == e2, "heap(block reuse)");
+    kfree(e2);
+
+    // --- 5. Block Coalescing Test ---
+    void *f1 = kmalloc(64);
+    void *f2 = kmalloc(64);
+    void *f3 = kmalloc(64);
+
+    heap_block_t *block_f1 = (heap_block_t*)((uint8_t*)f1 - sizeof(heap_block_t));
+    heap_block_t *block_f2 = (heap_block_t*)((uint8_t*)f2 - sizeof(heap_block_t));
+
+    kfree(f1);
+    kfree(f2);
+
+    size_t expected_merged_size = 64 + sizeof(heap_block_t) + 64; 
+    assert_true(block_f1->size >= expected_merged_size, "heap(block coalescing sizes)");
+    assert_true(block_f1->next == block_f2->next, "heap(linked list merged)");
+
+    // Clean up
+    kfree(c);
+    kfree(d);
+    kfree(f3);
 
     printf("Heap tests complete.\n");
 }

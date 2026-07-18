@@ -19,6 +19,7 @@
 static uint32_t mem_map[32768];
 static int used_blocks = 0;
 static int last_searched_idx = 0;
+static int total_blocks = 0;
 
 static void set_bit(int bit)
 {
@@ -45,6 +46,8 @@ void pmm_init(void)
 {
     uint32_t entry_count = *(uint32_t*)E820_MEM_MAP_ADDR;
     last_searched_idx = 0;
+    total_blocks = 0;
+    used_blocks = 0;
 
     // Assume All Memory is in use
     memset(mem_map, 0xFF, sizeof(mem_map));
@@ -58,6 +61,8 @@ void pmm_init(void)
         {
             uint32_t start_frame = mmap[i].base_addr / PMM_BLOCK_SIZE;
             uint32_t num_frames = mmap[i].region_length / PMM_BLOCK_SIZE;
+
+            total_blocks += num_frames;
             // Mark these specific frames as available
             for(uint32_t j = 0; j < num_frames; ++j) clear_bit(start_frame + j);
         }
@@ -66,8 +71,10 @@ void pmm_init(void)
     // Protect the first 1MB of memory (0x0 to 0xFFFFF).
     // This is strictly reserved for the BIOS, VGA Buffer, and Kernel code.
     // 1MB / 4KB = 256 blocks.
-    for(uint32_t i = 0; i < 256; ++i)
+    for(uint32_t i = 0; i < 256; ++i) {
         set_bit(i);
+        used_blocks++;
+    }
 }
 
 void* pmm_alloc_block(void)
@@ -108,4 +115,9 @@ void pmm_free_block(void* physical_addr)
 int get_used_memory(void)
 {
     return used_blocks;
+}
+
+int get_total_memory(void)
+{
+    return total_blocks;
 }

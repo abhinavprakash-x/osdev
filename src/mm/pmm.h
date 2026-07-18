@@ -14,3 +14,4 @@ void pmm_init(void);
 void* pmm_alloc_block(void);
 void pmm_free_block(void* physical_addr);
 int get_used_memory(void);
+int get_total_memory(void);
