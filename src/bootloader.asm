@@ -30,6 +30,13 @@ start:
     int 0x13
     jc disk_error          ; If carry flag is set, error!
 
+    ; -----------------------------
+    ; Enable A20 Line
+    ; -----------------------------
+    mov ax, 0x2401         ; BIOS function to enable A20
+    int 0x15               ; Call BIOS
+
+    ; Map the RAM using E820
     call mem_map_start
 
     ; switch to protected mode

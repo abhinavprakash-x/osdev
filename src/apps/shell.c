@@ -187,7 +187,7 @@ void execute_command(void)
         char* arg = buffer + 6;
         if (strcmp(arg, "div0") == 0) 
         {
-            int a = 1; 
+            volatile int a = 1; 
             volatile int b = 0; 
             a = a / b; // Triggers Exception 0
         } 

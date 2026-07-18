@@ -263,6 +263,10 @@ void test_heap(void)
     assert_true(b != 0, "kmalloc(64)");
     assert_true(a != b, "kmalloc(unique)");
 
+    memset(a, 0xAA, 32);
+    memset(b, 0xBB, 64);
+    assert_equal_int(0xAA, ((uint8_t*)a)[0], "kmalloc(no overlap)");
+
     kfree(a);
     kfree(b);
 

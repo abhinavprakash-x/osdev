@@ -24,11 +24,11 @@ void kmain(void)
 
     printf("Initializing IDT...\n");
     idt_init();
-    printf("Sucessfully Initialized\n");
+    printf("Successfully Initialized\n");
 
     printf("Initializing PIC...\n");
     pic_init();
-    printf("Sucessfully Initialized\n");
+    printf("Successfully Initialized\n");
 
     printf("Initializing PIT...\n");
     pit_init(100);

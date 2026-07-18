@@ -27,6 +27,8 @@ void pit_handler(void)
 
 void pit_init(uint32_t freq)
 {
+    if (freq < 20) freq = 20;
+    
     timer_freq = freq;
     uint32_t divisor = PIT_BASE_FREQ / freq;
 
