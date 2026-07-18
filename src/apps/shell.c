@@ -55,7 +55,7 @@ void execute_command(void)
         char* eqn_l = buffer + 5; // pointer to the first operand
         char operator = 0;
         char* eqn_r = 0; // pointer to the second operand
-        int i = 0;
+        int i = 1;
 
         // Parse the equation to find the operator and split the string
         while(eqn_l[i] != '\0')

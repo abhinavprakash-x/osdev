@@ -31,6 +31,17 @@ void itoa(int num, char* str)
     int i = 0;
     int is_negative = 0;
 
+    if(num == -2147483648)
+    {
+        const char* min_int = "-2147483648";
+        for (i = 0; min_int[i] != '\0'; i++)
+        {
+            str[i] = min_int[i];
+        }
+        str[i] = '\0';
+        return;
+    }
+
     if(num == 0)
     {
         str[i++] = '0';
