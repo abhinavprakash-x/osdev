@@ -72,7 +72,7 @@ $(BUILD_DIR)/kernel.bin: $(OBJECTS)
 # --------------------------
 $(BUILD_DIR)/boot.img: $(BUILD_DIR)/bootloader.bin $(BUILD_DIR)/kernel.bin
 	cat $^ > $@
-	dd if=/dev/zero bs=512 count=30 >> $@
+	dd if=/dev/zero bs=512 count=100 >> $@
 
 # --------------------------
 # Run

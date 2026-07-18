@@ -18,6 +18,7 @@
 
 static uint32_t mem_map[32768];
 static int used_blocks = 0;
+static int last_searched_idx = 0;
 
 static void set_bit(int bit)
 {
@@ -43,6 +44,7 @@ static int test_bit(int bit)
 void pmm_init(void)
 {
     uint32_t entry_count = *(uint32_t*)E820_MEM_MAP_ADDR;
+    last_searched_idx = 0;
 
     // Assume All Memory is in use
     memset(mem_map, 0xFF, sizeof(mem_map));
@@ -73,16 +75,18 @@ void* pmm_alloc_block(void)
     // Scan the bitmap looking for a free block
     for(int i = 0; i < PMM_BITMAP_SIZE; ++i)
     {
+        int idx = (last_searched_idx + i) % PMM_BITMAP_SIZE;
         // If entire 32-bit chunk is occupied skip it
-        if(mem_map[i] == 0xFFFFFFFF) continue;
+        if(mem_map[idx] == 0xFFFFFFFF) continue;
         
         // If any one bit is free (0). Find which one and Claim it
         for(int j = 0; j < 32; ++j)
         {
-            int bit = (i * 32) + j;
+            int bit = (idx * 32) + j;
             if(test_bit(bit) == 0)
             {
                 set_bit(bit);
+                last_searched_idx = idx;
                 uint32_t physical_addr = bit * 4096;
                 used_blocks++;
                 return (void*)physical_addr;

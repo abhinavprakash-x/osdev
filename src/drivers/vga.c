@@ -21,8 +21,8 @@ extern uint8_t inb(uint16_t port);
 static volatile char* const video = (volatile char*)VGA_MEM_ADDR;
 static size_t row = 0;
 static size_t col = 0;
-// Default Color: Light Gray (0x7) on Black Background (0x0)
-static const char color = 0x07;
+// Default Color: Light Green (0xA) on Black Background (0x0)
+static const char color = 0x0A;
 
 void clear_screen(void)
 {

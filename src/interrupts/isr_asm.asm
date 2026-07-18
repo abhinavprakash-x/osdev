@@ -91,3 +91,13 @@ isr_common_stub:
     add esp, 8      ; Clean up the pushed error code and pushed ISR number from the stack
     sti             ; Turn interrupts back on
     iret            ; "Interrupt Return" - pops CS, EIP, EFLAGS, and SS
+
+; -------------------------------------------
+; Catch-all for unmapped/unexpected interrupts
+; -------------------------------------------
+global isr_unhandled
+isr_unhandled:
+    cli
+    push 0      ; Dummy error code
+    push 255    ; Push 255 as the interrupt number for "Unhandled"
+    jmp isr_common_stub

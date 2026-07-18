@@ -193,7 +193,7 @@ void execute_command(void)
         } 
         else if (strcmp(arg, "page") == 0) 
         {
-            volatile uint32_t* bad_ptr = (uint32_t*)0xFFFFFFFF;
+            volatile uint32_t* bad_ptr = (uint32_t*)0x80000000;
             *bad_ptr = 0xBAD; // Triggers Exception 14
         } 
         else 

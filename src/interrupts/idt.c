@@ -21,6 +21,7 @@ extern void isr20(); extern void isr21(); extern void isr22(); extern void isr23
 extern void isr24(); extern void isr25(); extern void isr26(); extern void isr27();
 extern void isr28(); extern void isr29(); extern void isr30(); extern void isr31();
 extern void isr32(); extern void isr33();
+extern void isr_unhandled();
 
 static struct idt_entry* idt = (struct idt_entry*)IDT_PHYSICAL_ADDR;
 static struct idt_ptr idtp;
@@ -41,10 +42,7 @@ void idt_init(void)
     idtp.base  = (uint32_t)idt;
 
     for (int i = 0; i < IDT_ENTRIES; i++) {
-        idt[i].offset_low = 0;
-        idt[i].offset_high = 0;
-        idt[i].selector = 0;
-        idt[i].type_attr = 0;
+        set_idt_gate(i, (uint32_t)isr_unhandled);
     }
 
     // Map the 32 standard CPU Exceptions
