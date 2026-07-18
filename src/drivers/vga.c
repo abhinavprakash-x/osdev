@@ -13,23 +13,33 @@
 #define VGA_DATA_REGISTER 0x3D5
 #define VGA_OFFSET_LOW    0x0F
 #define VGA_OFFSET_HIGH   0x0E
+
 // Memory-mapped I/O address for VGA text mode
 #define VGA_MEM_ADDR      0xB8000
 
 static volatile char* const video = (volatile char*)VGA_MEM_ADDR;
+static char back_buffer[VGA_WIDTH * VGA_HEIGHT * 2];
+
 static size_t row = 0;
 static size_t col = 0;
 // Default Color: Light Green (0xA) on Black Background (0x0)
 static const char color = 0x0A;
+
+static void flush_buffer(void)
+{
+    memcpy((void*)video, back_buffer, VGA_WIDTH * VGA_HEIGHT * 2);
+}
 
 void clear_screen(void)
 {
     // A VGA character takes 2 bytes: [ASCII Char] [Color Attribute]
     for (size_t i = 0; i < VGA_WIDTH * VGA_HEIGHT; ++i)
     {
-        video[i * 2] = ' ';
-        video[i * 2 + 1] = color;
+        back_buffer[i * 2] = ' ';
+        back_buffer[i * 2 + 1] = color;
     }
+    flush_buffer();
+
     row = 0;
     col = 0;
     update_cursor();
@@ -62,13 +72,21 @@ void putchar(char c)
             }
         } 
         else col--;
+
         size_t index = (row * VGA_WIDTH + col) * 2;
+        back_buffer[index] = ' ';
+        back_buffer[index + 1] = color;
+
         video[index] = ' ';
         video[index + 1] = color;
     }
     else
     {
         size_t index = (row * VGA_WIDTH + col) * 2;
+
+        back_buffer[index] = c;
+        back_buffer[index + 1] = color;
+
         video[index] = c;
         video[index + 1] = color;
 
@@ -86,16 +104,21 @@ void putchar(char c)
         // Destination: The very start of video memory (Row 0)
         // Source: The start of Row 1 (video + VGA_WIDTH * 2 bytes)
         // Count: The total bytes in 24 rows
+        size_t row_size = VGA_WIDTH * 2;
         size_t bytes_to_copy = VGA_WIDTH * (VGA_HEIGHT - 1) * 2;
-        memcpy((void*)video, (const void*)(video + VGA_WIDTH * 2), bytes_to_copy);
+
+        memcpy(back_buffer, back_buffer + row_size, bytes_to_copy);
 
         size_t last_row_start = (VGA_HEIGHT - 1) * VGA_WIDTH * 2;
         for (size_t i = 0; i < VGA_WIDTH; i++)
         {
-            video[last_row_start + (i * 2)] = ' ';
-            video[last_row_start + (i * 2) + 1] = color;
+            back_buffer[last_row_start + (i * 2)] = ' ';
+            back_buffer[last_row_start + (i * 2) + 1] = color;
         }
+        flush_buffer();
+
         row = VGA_HEIGHT - 1;
+        col = 0;
     }
     update_cursor();
 }
