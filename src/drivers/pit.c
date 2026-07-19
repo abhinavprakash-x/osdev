@@ -6,6 +6,7 @@
 
 #include "pit.h"
 #include "port_io.h"
+#include "../task/scheduler.h"
 
 // Hardware I/O Ports
 #define PIT_CMD_PORT      0x43
@@ -22,6 +23,11 @@ void pit_handler(void)
 {
     tick_count++;
     outb(PIC1_COMMAND, PIC_EOI);
+
+    // Switch tasks every 100 ticks (e.g., 1000ms if running at 100Hz)
+    if (tick_count % 100 == 0) {
+        schedule();
+    }
 }
 
 void pit_init(uint32_t freq)

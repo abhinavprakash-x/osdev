@@ -13,9 +13,20 @@
 #include "mm/paging.h"
 #include "libc/stdlib.h"
 #include "mm/heap.h"
+#include "task/task.h"
 
 extern void shell_init(void);
 extern void shell_input(char c);
+
+void task_a(void)
+{
+    while(1) printf("Task A\n");
+}
+
+void task_b(void)
+{
+    while(1) printf("Task B\n");
+}
 
 void kmain(void)
 {
@@ -46,16 +57,28 @@ void kmain(void)
     heap_init();
     printf("Successfully Initialized\n");
 
+    printf("Initializing Scheduler...\n");
+    scheduler_init();
+    printf("Successfully Initialized\n");
+
     // Enable Interrupts
     __asm__ volatile ("sti");
 
-    // Launch Shell
-    shell_init();
+    // Test Scheduler
+    task_add(create_task(task_a));
+    task_add(create_task(task_b));
 
-    while (1)
-    {
-        char c = keyboard_get_char();
-        if (c != 0) shell_input(c);
-        else __asm__ volatile ("hlt");
+    while(1) {
+        printf("M");
     }
+
+    // Launch Shell
+    // shell_init();
+
+    // while (1)
+    // {
+    //     char c = keyboard_get_char();
+    //     if (c != 0) shell_input(c);
+    //     else __asm__ volatile ("hlt");
+    // }
 }
