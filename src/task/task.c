@@ -1,13 +1,10 @@
 #include "task.h"
 #include "../mm/heap.h"
+#include "scheduler.h"
 
-// A safety net in case a kernel thread accidentally returns.
-static void task_exit(void) 
-{
-    while(1) {
-        __asm__ volatile("cli; hlt");
-    }
-}
+extern void yield(void);
+static uint32_t next_pid = 1;
+
 
 task_t* create_task(void (*entry_point)(void))
 {
@@ -43,6 +40,10 @@ task_t* create_task(void (*entry_point)(void))
     // 4. Save the current stack pointer into the PCB
     new_task->esp = (uint32_t)stack;
     new_task->next = 0;
+    new_task->pid = next_pid++;
+    new_task->state = TASK_READY;
+    new_task->stack_allocation = stack_memory; // CRITICAL for kfree later!
+    new_task->wake_time = 0;
 
     return new_task;
 }
