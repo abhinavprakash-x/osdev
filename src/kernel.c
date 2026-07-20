@@ -14,18 +14,40 @@
 #include "libc/stdlib.h"
 #include "mm/heap.h"
 #include "task/task.h"
+#include "task/scheduler.h"
 
 extern void shell_init(void);
 extern void shell_input(char c);
 
+uint32_t counter_a = 0;
+uint32_t counter_b = 0;
+
 void task_a(void)
 {
-    while(1) printf("Task A\n");
+    while(1)
+    {
+        printf("Counter A: %d\n", counter_a++);
+        sleep(2000);
+    }
 }
 
 void task_b(void)
 {
-    while(1) printf("Task B\n");
+    while(1)
+    {
+        printf("Counter B: %d\n", counter_b++);
+        sleep(3000);
+    }
+}
+
+void task_shell(void)
+{
+    while (1)
+    {
+        char c = keyboard_get_char();
+        if (c != 0) shell_input(c);
+        else __asm__ volatile ("hlt");
+    }
 }
 
 void kmain(void)
@@ -67,18 +89,13 @@ void kmain(void)
     // Test Scheduler
     task_add(create_task(task_a));
     task_add(create_task(task_b));
-
-    while(1) {
-        printf("M");
-    }
+    task_add(create_task(task_shell));
 
     // Launch Shell
-    // shell_init();
+    shell_init();
 
-    // while (1)
-    // {
-    //     char c = keyboard_get_char();
-    //     if (c != 0) shell_input(c);
-    //     else __asm__ volatile ("hlt");
-    // }
+    while (1)
+    {
+        __asm__ volatile ("hlt");
+    }
 }

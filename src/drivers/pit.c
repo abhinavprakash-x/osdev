@@ -18,14 +18,17 @@
 
 static volatile uint32_t tick_count = 0;
 static uint32_t timer_freq = 0;
+static int time_slice = 0;
 
 void pit_handler(void)
 {
     tick_count++;
     outb(PIC1_COMMAND, PIC_EOI);
 
-    // Switch tasks every 100 ticks (e.g., 1000ms if running at 100Hz)
-    if (tick_count % 100 == 0) {
+    time_slice++;
+    if (time_slice >= 5)
+    {
+        time_slice = 0;
         schedule();
     }
 }
@@ -60,17 +63,7 @@ uint32_t ticks_to_ms(uint32_t ticks)
     return (ticks * 1000) / timer_freq;
 }
 
-void sleep(uint32_t milliseconds)
+uint32_t get_timer_freq(void)
 {
-    if (timer_freq == 0) return;
-
-    // Calculate ticks needed based on the actual configured frequency
-    // Formula: (ms * frequency) / 1000
-    uint32_t target_ticks = tick_count + ((milliseconds * timer_freq) / 1000);
-    
-    // Halt the CPU until the target tick is reached hlt puts CPU into a
-    // Low power state until any interrupt fires.
-    while (tick_count < target_ticks) {
-        __asm__ volatile("hlt");
-    }
+    return timer_freq;
 }
