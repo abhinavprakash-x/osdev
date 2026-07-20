@@ -13,6 +13,7 @@
 #include "kernel_tests.h"
 #include "../mm/pmm.h"
 #include "../mm/heap.h"
+#include "../task/scheduler.h"
 
 static char buffer[256];
 static int buffer_index = 0;
@@ -44,6 +45,15 @@ void execute_command(void)
         printf("calc <eqn>: Calculator\n");
         printf("time: Shows Seconds since last boot\n");
         printf("test: Runs the Test Suite\n");
+        printf("meminfo: \n");
+        printf("alloc <bytes>: Allocates memory on RAM\n");
+        printf("free <address>: Frees the heap at Address\n");
+        printf("peek <address>: See the Value stored at Address\n");
+        printf("poke <adress> <value>: Edit Value stored at Address\n");
+        printf("cpuinfo: Prints CPU Name\n");
+        printf("crash <arg>: div0/page crash Force Kernel Panic\n");
+        printf("reboot: Instantly Restarts your Computer\n");
+        printf("tasks: Shows currently active tasks\n");
     }  
     else if (strncmp(buffer, "echo ", 5) == 0)
     {
@@ -214,6 +224,10 @@ void execute_command(void)
         printf("Rebooting system...\n");
         // Send command 0xFE to the Keyboard Controller port 0x64
         __asm__ volatile ("outb %1, %0" : : "dN" ((uint16_t)0x64), "a" ((uint8_t)0xFE));
+    }
+    else if (strcmp(buffer, "tasks") == 0)
+    {
+        print_tasks();
     }
     else
     {

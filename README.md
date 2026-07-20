@@ -22,12 +22,12 @@ A hobby 32-bit x86 operating system written entirely from scratch in C and x86 A
 - [x] Kernel Heap (`kmalloc` / `kfree`)
 - [x] Test Suite
 - [x] Scheduler
+- [x] Kernel Threads
 
 ## 🚀 Roadmap
 
 ### Core Kernel
 
-- [ ] Kernel Threads
 - [ ] Ring 3 User Mode
 - [ ] TSS
 - [ ] System Calls

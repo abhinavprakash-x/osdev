@@ -6,4 +6,5 @@ void task_add(task_t* new_task);
 void schedule(void);
 void yield(void);
 void task_exit(void);
-void sleep(uint32_t milliseconds);
+void task_sleep(uint32_t milliseconds);
+void print_tasks(void);

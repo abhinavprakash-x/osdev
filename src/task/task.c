@@ -6,7 +6,7 @@ extern void yield(void);
 static uint32_t next_pid = 1;
 
 
-task_t* create_task(void (*entry_point)(void))
+task_t* create_task(const char* name, void (*entry_point)(void))
 {
     // 1. Allocate the PCB and a 4KB stack from the heap
     task_t* new_task = (task_t*)kmalloc(sizeof(task_t));
@@ -41,6 +41,7 @@ task_t* create_task(void (*entry_point)(void))
     new_task->esp = (uint32_t)stack;
     new_task->next = 0;
     new_task->pid = next_pid++;
+    new_task->name = name;
     new_task->state = TASK_READY;
     new_task->stack_allocation = stack_memory; // CRITICAL for kfree later!
     new_task->wake_time = 0;

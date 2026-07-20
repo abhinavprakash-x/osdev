@@ -1,16 +1,19 @@
 #include "scheduler.h"
 #include "../mm/heap.h"
 #include "../drivers/pit.h"
+#include "../libc/stdlib.h"
 
 task_t* current_task = 0;
 
 void scheduler_init(void)
 {
-    // 1. Create the dummy PCB for the currently running kmain thread
+    //1. Create PID 0 for the initial kernel execution context.
+    // After initialization, kmain acts as the scheduler's idle task.
     task_t* main_task = (task_t*)kmalloc(sizeof(task_t));
 
     main_task->esp = 0;
     main_task->pid = 0;
+    main_task->name = "kmain";
     main_task->state = TASK_RUNNING;
     main_task->stack_allocation = 0;
     main_task->wake_time = 0;
@@ -115,10 +118,15 @@ void task_exit(void)
     // Immediately hand the CPU to another task.
     // The scheduler loop will eventually see this task is dead, 
     // bypass it, and clean up its memory.
-    yield(); 
+    yield();
+
+    while (1)
+    {
+        __asm__ volatile("cli; hlt");
+    }
 }
 
-void sleep(uint32_t milliseconds)
+void task_sleep(uint32_t milliseconds)
 {
     if (current_task == 0) return;
 
@@ -130,4 +138,38 @@ void sleep(uint32_t milliseconds)
 
     // Immediately hand over the CPU so other tasks can run while we wait
     yield();
+}
+
+static const char* task_state_string(task_state_t state)
+{
+    switch (state)
+    {
+        case TASK_READY:   return "READY";
+        case TASK_RUNNING: return "RUNNING";
+        case TASK_WAITING: return "WAITING";
+        case TASK_DEAD:    return "DEAD";
+        default:           return "UNKNOWN";
+    }
+}
+
+void print_tasks(void)
+{
+    if (current_task == 0)
+    {
+        printf("Scheduler not initialized.\n");
+        return;
+    }
+
+    printf("PID\tNAME\tSTATE\n");
+    printf("------------------------\n");
+
+    task_t* task = current_task;
+
+    do
+    {
+        printf("%d\t%s\t%s\n", task->pid, task->name, task_state_string(task->state));
+
+        task = task->next;
+
+    } while (task != current_task);
 }
