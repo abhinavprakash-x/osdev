@@ -113,6 +113,7 @@ void execute_command(void)
         else if(strcmp(buffer, "test string") == 0) test_string();
         else if(strcmp(buffer, "test stdlib") == 0) test_stdlib();
         else if(strcmp(buffer, "test memory") == 0) test_memory();
+        else if(strcmp(buffer, "test scheduler") == 0) test_scheduler();
         else printf("Unknown test suite.\n");
     }
     else if (strcmp(buffer, "meminfo") == 0)

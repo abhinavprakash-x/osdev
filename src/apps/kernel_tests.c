@@ -14,6 +14,8 @@
 #include "../mm/pmm.h"
 #include "../mm/paging.h"
 #include "../drivers/pit.h"
+#include "../task/task.h"
+#include "../task/scheduler.h"
 
 static int tests_passed = 0;
 static int tests_failed = 0;
@@ -67,6 +69,29 @@ static void assert_equal_int(int expected, int actual, const char *name)
     }
 }
 
+static volatile uint32_t test_counter_a = 0;
+static volatile uint32_t test_counter_b = 0;
+
+static void scheduler_test_task_a(void)
+{
+    for (int i = 0; i < 5; i++) {
+        test_counter_a++;
+        task_sleep(20);
+    }
+
+    task_exit();
+}
+
+static void scheduler_test_task_b(void)
+{
+    for (int i = 0; i < 5; i++) {
+        test_counter_b++;
+        task_sleep(30);
+    }
+
+    task_exit();
+}
+
 /* Test Runner */
 void test_all(void)
 {
@@ -83,6 +108,7 @@ void test_all(void)
     test_string();
     test_stdlib();
     test_memory();
+    test_scheduler();
 
     uint32_t end = get_ticks();
     printf("\n========================================\n");
@@ -345,4 +371,25 @@ void test_paging(void)
 
     pmm_free_block((void*)phys);
     printf("Paging tests complete.\n");
+}
+
+/* Scheduler/Multitasking tests */
+void test_scheduler(void)
+{
+    test_counter_a = 0;
+    test_counter_b = 0;
+
+    task_t* task_a = create_task("test_a", scheduler_test_task_a);
+    task_t* task_b = create_task("test_b", scheduler_test_task_b);
+
+    assert_true(task_a != NULL, "Create scheduler task A");
+    assert_true(task_b != NULL, "Create scheduler task B");
+
+    task_add(task_a);
+    task_add(task_b);
+
+    task_sleep(250);
+
+    assert_equal_int(test_counter_a, 5, "Scheduler executed task A");
+    assert_equal_int(test_counter_b, 5, "Scheduler executed task B");
 }

@@ -19,27 +19,6 @@
 extern void shell_init(void);
 extern void shell_input(char c);
 
-uint32_t counter_a = 0;
-uint32_t counter_b = 0;
-
-void task_a(void)
-{
-    while(1)
-    {
-        printf("Counter A: %d\n", counter_a++);
-        task_sleep(2000);
-    }
-}
-
-void task_b(void)
-{
-    while(1)
-    {
-        printf("Counter B: %d\n", counter_b++);
-        task_sleep(3000);
-    }
-}
-
 void task_shell(void)
 {
     while (1)
@@ -48,14 +27,6 @@ void task_shell(void)
         if (c != 0) shell_input(c);
         else __asm__ volatile ("hlt");
     }
-}
-
-void temporary_task(void)
-{
-    printf("Temporary task started.\n");
-    print_tasks();
-    task_sleep(1000);
-    printf("Temporary task exiting.\n");
 }
 
 void kmain(void)
@@ -93,14 +64,9 @@ void kmain(void)
 
     // Enable Interrupts
     __asm__ volatile ("sti");
-
-    // Test Scheduler
-    task_add(create_task("shell", task_shell));
-    task_add(create_task("task_a", task_a));
-    task_add(create_task("task_b", task_b));
-    task_add(create_task("temp", temporary_task));
-
+    
     // Launch Shell
+    task_add(create_task("shell", task_shell));
     shell_init();
 
     while (1)
