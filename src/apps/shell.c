@@ -41,22 +41,31 @@ void execute_command(void)
     }
     else if (strcmp(buffer, "help") == 0)
     {
-        printf("Available commands:\n");
-        printf("help: Shows this menu\n");
-        printf("clear: Clears the screen (F1)\n");
-        printf("echo <string>: Prints string on console\n");
-        printf("calc <eqn>: Calculator\n");
-        printf("time: Shows Seconds since last boot\n");
-        printf("test: Runs the Test Suite\n");
-        printf("meminfo: Displays the Physical Memory Usage\n");
-        printf("alloc <bytes>: Allocates memory on RAM\n");
-        printf("free <address>: Frees the heap at Address\n");
-        printf("peek <address>: See the Value stored at Address\n");
-        printf("poke <adress> <value>: Edit Value stored at Address\n");
-        printf("cpuinfo: Prints CPU Name\n");
-        printf("crash <arg>: div0/page crash Force Kernel Panic\n");
-        printf("reboot: Instantly Restarts your Computer\n");
-        printf("tasks: Shows currently active tasks\n");
+        printf("\nAvailable commands:\n");
+
+        printf("  General\n");
+        printf("    help                 Show available commands\n");
+        printf("    clear                Clear the screen\n");
+        printf("    echo <text>          Print text to the console\n");
+        printf("    calc <expression>    Evaluate a basic expression\n");
+        printf("    time                 Show time since boot\n");
+        printf("    reboot               Restart the system\n");
+
+        printf("\n  System\n");
+        printf("    cpuinfo              Display CPU information\n");
+        printf("    meminfo              Display physical memory usage\n");
+        printf("    tasks                Display active tasks\n");
+        printf("    test [suite]         Run kernel tests\n");
+
+        printf("\n  Memory\n");
+        printf("    alloc <bytes>        Allocate kernel heap memory\n");
+        printf("    free <address>       Free a heap allocation\n");
+        printf("    peek <address>       Read a 32-bit value from memory\n");
+        printf("    poke <addr> <value>  Write a 32-bit value to memory\n");
+
+        printf("\n  Debug\n");
+        printf("    crash div0           Trigger a divide-by-zero exception\n");
+        printf("    crash page           Trigger a page fault\n");
     }  
     else if (strncmp(buffer, "echo ", 5) == 0)
     {

@@ -133,7 +133,7 @@ align 4
 DAP:
     db 0x10             ; Size of this packet (always 16 bytes)
     db 0                ; Always 0
-    dw 100              ; Number of sectors to read (15KB Kernel)
+    dw 100              ; Number of sectors to read
     dw 0x8000           ; Memory Offset to load to
     dw 0x0000           ; Memory Segment to load to (0:0x8000)
     dq 1                ; LBA address to start reading from (Sector 1)

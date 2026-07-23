@@ -1,54 +1,220 @@
 # Kernel Architecture & Design
 
-This document serves as a reference for the physical memory layout, hardware communication, and core design decisions of the operating system.
+Bare Minimum OS is a 32-bit x86 operating system using a monolithic
+kernel architecture. The kernel is written in C and x86 assembly and
+currently executes entirely in Ring 0.
 
-## 1. Boot Sequence
-1. **BIOS Initialization:** The system powers on, and the BIOS runs POST.
-2. **Bootloader (16-bit):** The BIOS loads our custom bootloader into memory at `0x7C00`.
-3. **Kernel Loading:** The bootloader uses BIOS Interrupt `0x13` with a Disk Address Packet (LBA) to load the kernel from the disk into memory at `0x8000`.
-4. **Protected Mode:** The bootloader disables interrupts (`cli`), loads the GDT, flips the `cr0` register to enter 32-bit Protected Mode, and jumps to `0x8000`.
-5. **Kernel Entry:** `kernel_entry.asm` hands execution over to our C code (`kmain`).
+## Physical Memory Map
 
-## 2. Physical Memory Map
-Because we are working in a bare-metal environment, it is critical not to overwrite reserved memory.
+Because Bare Minimum OS runs directly on bare metal, certain physical
+memory regions have fixed purposes and must not be overwritten.
 
-| Address | Size/End | Description |
-| :--- | :--- | :--- |
+| Address | End | Description |
+|---|---|---|
 | `0x00000` | `0x003FF` | BIOS Interrupt Vector Table (IVT) |
 | `0x00400` | `0x004FF` | BIOS Data Area (BDA) |
-| `0x05000` | - | Memory Map data (populated via BIOS `E820`) |
-| `0x07C00` | `0x07DFF` | Custom Bootloader (512 bytes) |
-| `0x08000` | - | Kernel Code & Data |
-| `0x90000` | - | Interrupt Descriptor Table (IDT) |
-| `0xA0000` | - | Stack Base (Grows downwards) |
-| `0xB8000` | `0xBFFFF` | VGA Text Mode Buffer |
+| `0x05000` | — | E820 memory map data |
+| `0x07C00` | `0x07DFF` | Custom bootloader (512 bytes) |
+| `0x08000` | — | Kernel code and data |
+| `0x90000` | — | Interrupt Descriptor Table (IDT) |
+| `0xA0000` | — | Initial kernel stack top (grows downward) |
+| `0xB8000` | `0xBFFFF` | VGA text-mode memory |
 
-## 3. Interrupts & IRQ Routing
-To handle hardware devices, the 8259 Programmable Interrupt Controller (PIC) is remapped. By default, hardware IRQs collide with CPU exceptions (0-31). We remap them so hardware interrupts start at ISR 32.
+The BIOS E820 memory map stores its entry count at `0x5000`, followed
+by the memory-map entries beginning at `0x5004`.
 
-* **CPU Exceptions:** ISR 0 - 31 (e.g., ISR 0 = Divide by Zero, ISR 14 = Page Fault)
-* **Master PIC (IRQ 0-7):** Remapped to ISR 32 - 39
-* **Slave PIC (IRQ 8-15):** Remapped to ISR 40 - 47
+The kernel is linked and loaded at physical address `0x8000`.
 
-**Active Handlers:**
-* `IRQ 0` (`ISR 32`): PIT (Timer running at 100Hz)
-* `IRQ 1` (`ISR 33`): PS/2 Keyboard
+## Boot Process
 
-## 4. Hardware I/O Ports
-Communication with hardware devices occurs via `inb` and `outb` on the following ports:
-* `0x20`, `0x21`: Master PIC Command/Data
-* `0xA0`, `0xA1`: Slave PIC Command/Data
-* `0x40`, `0x43`: PIT Data Channel 0 / Command Register
-* `0x60`: PS/2 Keyboard Data Port
-* `0x3D4`, `0x3D5`: VGA CRT Control (Blinking Cursor)
+The system boots using a custom BIOS bootloader.
 
-## 5. Physical Memory Manager
-Note: This OS utilizes a **Bitmap Allocator** for managing physical RAM frames
-Using a bitmap is highly efficient for early kernel development. Every 4KB frame of memory is represented by a single bit. If a bit is `1`, the frame is in use; if `0`, it is free. The memory bounds are dynamically detected using BIOS interrupt `0x15, eax=0xE820` during the boot phase.
+The boot process is roughly:
 
-## 6. Virtual Memory (Paging)
-To provide hardware-enforced memory isolation and protection, the kernel enables 32-bit Paging during initialization.
+```text
+BIOS
+  |
+  v
+Bootloader (0x7C00)
+  |
+  +-- Load kernel from disk
+  +-- Obtain E820 memory map
+  +-- Enable A20
+  +-- Load GDT
+  +-- Enter 32-bit protected mode
+  |
+  v
+Kernel Entry
+  |
+  v
+kmain()
+```
 
-* **Structure:** A two-level paging system is utilized, consisting of a single Page Directory (4KB) and multiple Page Tables (4KB). 
-* **Mapping:** Upon initialization, the kernel performs an "Identity Map" of the first 4MB of physical memory. This ensures that the kernel code, stack, and VGA buffer remain accessible at their standard virtual addresses after paging is enabled.
-* **Protection:** Any attempt to access memory beyond the initial 4MB without a valid Page Table entry triggers an Exception 14 (Page Fault), which is handled by the IDT to prevent corruption.
+The bootloader loads the kernel into memory and transfers execution to
+the 32-bit kernel after entering protected mode.
+
+The GDT is currently created by the bootloader and contains the
+descriptors required for Ring 0 execution. Moving GDT management into
+the kernel is planned as part of the transition to user mode.
+
+## Kernel Initialization
+
+The kernel initializes its major subsystems before starting the
+interactive shell.
+
+```text
+IDT
+ |
+PIC
+ |
+PIT
+ |
+Physical Memory Manager
+ |
+Paging
+ |
+Kernel Heap
+ |
+Scheduler
+ |
+Shell
+```
+
+Hardware interrupts are enabled after the required interrupt and
+scheduler infrastructure has been initialized.
+
+## Interrupts & IRQ Routing
+
+The kernel uses the Interrupt Descriptor Table (IDT) for CPU exceptions
+and hardware interrupts.
+
+The legacy 8259 Programmable Interrupt Controller (PIC) is remapped
+because its default IRQ vectors overlap with the CPU exception vectors
+`0–31`.
+
+After remapping:
+
+| Source | IRQ | IDT Vector |
+|---|---:|---:|
+| CPU Exceptions | — | `0–31` |
+| Master PIC | `IRQ 0–7` | `32–39` |
+| Slave PIC | `IRQ 8–15` | `40–47` |
+
+Currently active hardware interrupts are:
+
+| IRQ | Vector | Device |
+|---|---:|---|
+| IRQ 0 | 32 | Programmable Interval Timer (PIT) |
+| IRQ 1 | 33 | PS/2 Keyboard |
+
+All other PIC IRQs are currently masked.
+
+The PIT runs at 100 Hz and is also used to drive the preemptive
+scheduler.
+
+## Hardware I/O Ports
+
+Hardware devices are accessed using the x86 `inb` and `outb`
+instructions.
+
+| Port | Purpose |
+|---|---|
+| `0x20` | Master PIC command |
+| `0x21` | Master PIC data / interrupt mask |
+| `0xA0` | Slave PIC command |
+| `0xA1` | Slave PIC data / interrupt mask |
+| `0x40` | PIT Channel 0 data |
+| `0x43` | PIT command register |
+| `0x60` | PS/2 keyboard data |
+| `0x3D4` | VGA CRT controller index |
+| `0x3D5` | VGA CRT controller data |
+| `0x80` | I/O delay used during PIC initialization |
+
+## Memory Management
+
+Memory management is divided into three layers:
+
+```text
+kmalloc() / kfree()
+        |
+        v
+   Kernel Heap
+        |
+        v
+      Paging
+        |
+        v
+Physical Memory Manager
+        |
+        v
+   Physical Memory
+```
+
+The Physical Memory Manager tracks available 4 KiB physical frames
+using a bitmap and allocates them using a next-fit strategy.
+
+Paging provides virtual memory using the 32-bit x86 two-level paging
+structure. The kernel also uses recursive page-directory mapping to
+access paging structures through virtual memory.
+
+The kernel heap provides dynamic allocation through `kmalloc()` and
+`kfree()` and supports heap growth, block splitting and coalescing.
+
+See [Memory Management](memory.md) for more details.
+
+## Drivers
+
+The kernel currently contains drivers for:
+
+- VGA text-mode output
+- PS/2 keyboard input
+- Programmable Interval Timer
+- 8259 PIC
+
+The keyboard driver converts PS/2 Scancode Set 1 input into characters
+and stores keyboard input in a circular buffer.
+
+The VGA text driver writes directly to VGA text memory and uses a back
+buffer to reduce unnecessary screen updates.
+
+## Multitasking
+
+Bare Minimum OS implements preemptive multitasking using kernel threads.
+
+The PIT periodically interrupts the currently executing task, allowing
+the scheduler to select another runnable task.
+
+Tasks contain their execution context and scheduling information in a
+task control structure and may transition between states such as
+`READY`, `RUNNING`, and `WAITING`.
+
+Tasks can sleep for a period of time and are returned to the runnable
+state by the scheduler when their wake time is reached. Finished tasks
+are removed and their resources are reclaimed.
+
+See [Multitasking](multitasking.md) for more details.
+
+## Kernel Shell
+
+The interactive shell currently executes as a kernel thread in Ring 0.
+
+It provides commands for interacting with and inspecting kernel
+subsystems, including memory management, task information, CPU
+information and the kernel test suite.
+
+Because user mode has not yet been implemented, shell commands currently
+have the same privileges as the kernel.
+
+## Current Limitations
+
+The OS currently:
+
+- Runs entirely in Ring 0
+- Uses BIOS booting
+- Targets 32-bit x86
+- Has no filesystem or disk driver
+- Has no user-space processes or system calls
+- Uses VGA text mode for display output
+
+User mode, a kernel-managed GDT, TSS and system calls are the next major
+architectural milestones.
