@@ -32,42 +32,41 @@ void task_shell(void)
 void kmain(void)
 {
     clear_screen();
-    printf("Welcome to Bare Minimum OS\n");
+    printf("Bare Minimum OS\n");
+    printf("32-bit x86 Operating System\n");
+    printf("----------------------------------------\n\n");
+    printf("Initializing kernel...\n");
 
-    printf("Initializing IDT...\n");
     idt_init();
-    printf("Successfully Initialized\n");
+    printf("[ OK ] IDT\n");
 
-    printf("Initializing PIC...\n");
     pic_init();
-    printf("Successfully Initialized\n");
+    printf("[ OK ] PIC\n");
 
-    printf("Initializing PIT...\n");
     pit_init(100);
-    printf("Successfully Initialized with frequency of 100 Hz\n");
+    printf("[ OK ] PIT                         100 Hz\n");
 
-    printf("Initializing PMM...\n");
     pmm_init();
-    printf("Successfully Initialized\n");
+    printf("[ OK ] Physical Memory Manager\n");
 
-    printf("Enabling Paging...\n");
     paging_init();
-    printf("Successfully Enabled\n");
+    printf("[ OK ] Paging\n");
 
-    printf("Initializing Heap...\n");
     heap_init();
-    printf("Successfully Initialized\n");
+    printf("[ OK ] Kernel Heap\n");
 
-    printf("Initializing Scheduler...\n");
     scheduler_init();
-    printf("Successfully Initialized\n");
+    printf("[ OK ] Scheduler\n");
 
-    // Enable Interrupts
-    __asm__ volatile ("sti");
-    
+    printf("\n----------------------------------------\n");
+    printf("Kernel initialization complete.\n");
+
     // Launch Shell
     task_add(create_task("shell", task_shell));
     shell_init();
+
+    // Enable Interrupts
+    __asm__ volatile ("sti");
 
     while (1)
     {

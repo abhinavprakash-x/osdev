@@ -18,10 +18,13 @@
 static char buffer[256];
 static int buffer_index = 0;
 
-void shell_init(void) 
+void shell_init(void)
 {
-    memset(buffer, 0, 256); 
-    printf("Welcome to the OS Shell!\n");
+    memset(buffer, 0, sizeof(buffer));
+    buffer_index = 0;
+
+    printf("\nWelcome to Bare Minimum OS!\n");
+    printf("Type 'help' for available commands.\n\n");
     printf("OS> ");
 }
 
@@ -45,7 +48,7 @@ void execute_command(void)
         printf("calc <eqn>: Calculator\n");
         printf("time: Shows Seconds since last boot\n");
         printf("test: Runs the Test Suite\n");
-        printf("meminfo: \n");
+        printf("meminfo: Displays the Physical Memory Usage\n");
         printf("alloc <bytes>: Allocates memory on RAM\n");
         printf("free <address>: Frees the heap at Address\n");
         printf("peek <address>: See the Value stored at Address\n");

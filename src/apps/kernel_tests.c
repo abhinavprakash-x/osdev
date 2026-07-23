@@ -376,6 +376,7 @@ void test_paging(void)
 /* Scheduler/Multitasking tests */
 void test_scheduler(void)
 {
+    printf("[Scheduler]\n");
     test_counter_a = 0;
     test_counter_b = 0;
 
@@ -392,4 +393,5 @@ void test_scheduler(void)
 
     assert_equal_int(test_counter_a, 5, "Scheduler executed task A");
     assert_equal_int(test_counter_b, 5, "Scheduler executed task B");
+    printf("Scheduler tests complete.\n");
 }
