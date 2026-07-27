@@ -15,6 +15,7 @@
 #include "mm/heap.h"
 #include "task/task.h"
 #include "task/scheduler.h"
+#include "cpu/gdt.h"
 
 extern void shell_init(void);
 extern void shell_input(char c);
@@ -37,6 +38,9 @@ void kmain(void)
     printf("----------------------------------------\n\n");
     printf("Initializing kernel...\n");
 
+    gdt_init();
+    printf("[ OK ] GDT\n");
+    
     idt_init();
     printf("[ OK ] IDT\n");
 

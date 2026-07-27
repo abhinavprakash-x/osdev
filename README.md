@@ -107,6 +107,7 @@ osdev/
 |       |----- libc/           # Custom freestanding C library
 |       |----- mm/             # PMM, paging and kernel heap
 |       |----- task/           # Multitasking and scheduling
+|       |----- cpu/            # GDT, TSS, etc.
 |
 |----- linker.ld    # Linker script
 |----- Makefile     # Build commands
