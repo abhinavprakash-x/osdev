@@ -5,7 +5,7 @@ static struct gdt_ptr gdt_descriptor;
 
 extern void gdt_flush(struct gdt_ptr *descriptor);
 
-static void gdt_set_entry(int index, uint32_t base, uint32_t limit, uint8_t access, uint8_t flags)
+void gdt_set_entry(int index, uint32_t base, uint32_t limit, uint8_t access, uint8_t flags)
 {
     gdt[index].base_low = (base & 0xFFFF);
     gdt[index].base_middle = (base >> 16) & 0xFF;

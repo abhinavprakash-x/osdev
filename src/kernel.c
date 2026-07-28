@@ -16,6 +16,7 @@
 #include "task/task.h"
 #include "task/scheduler.h"
 #include "cpu/gdt.h"
+#include "cpu/tss.h"
 
 extern void shell_init(void);
 extern void shell_input(char c);
@@ -40,6 +41,9 @@ void kmain(void)
 
     gdt_init();
     printf("[ OK ] GDT\n");
+
+    tss_init();
+    printf("[ OK ] TSS\n");
     
     idt_init();
     printf("[ OK ] IDT\n");

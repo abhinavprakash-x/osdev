@@ -1,6 +1,6 @@
 ASM = nasm
 CC  = i686-elf-gcc
-LD  = ld
+LD  = i686-elf-ld
 
 SRC_DIR = src
 BUILD_DIR = build
