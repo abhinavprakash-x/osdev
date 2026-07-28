@@ -43,7 +43,7 @@ system calls are the next major development milestones.
 
 ### Userspace
 - Kernel-managed GDT
-- Task State Segmentb(TSS)
+- Task State Segment (TSS)
 
 ## Roadmap
 
