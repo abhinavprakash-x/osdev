@@ -41,12 +41,13 @@ system calls are the next major development milestones.
 - Custom freestanding C library
 - Kernel test suite
 
+### Userspace
+- Kernel-managed GDT
+- Task State Segmentb(TSS)
+
 ## Roadmap
 
 ### Userspace
-- [ ] Kernel-managed GDT
-- [ ] Ring 3 code/data segments
-- [ ] Task State Segment (TSS)
 - [ ] System call interface
 - [ ] Per-process address spaces
 - [ ] ELF executable loader
