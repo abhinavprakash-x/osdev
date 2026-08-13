@@ -77,7 +77,7 @@ mem_map_start:
 .loop:
     mov eax, 0xe820
     mov ecx, 24
-    mov edx, 0x534d4150 ; magic number for SMAP
+    mov edx, 0x534d4150 ; magic number, this is SMAP in ASCII
     int 0x15            ; interrupt 0x15
     jc .done
 
