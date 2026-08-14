@@ -17,7 +17,6 @@ void scheduler_init(void)
     main_task->state = TASK_RUNNING;
     main_task->stack_allocation = 0;
     main_task->wake_time = 0;
-    main_task->next = main_task;
     
     // 2. Make it a circular linked list pointing to itself
     main_task->next = main_task;

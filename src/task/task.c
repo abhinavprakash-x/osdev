@@ -2,9 +2,7 @@
 #include "../mm/heap.h"
 #include "scheduler.h"
 
-extern void yield(void);
 static uint32_t next_pid = 1;
-
 
 task_t* create_task(const char* name, void (*entry_point)(void))
 {
