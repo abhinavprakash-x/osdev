@@ -13,7 +13,7 @@ static uint32_t heap_end_vaddr = HEAP_START;
 void heap_init(void)
 {
     uint32_t physical_block = (uint32_t)pmm_alloc_block();
-    map_page(HEAP_START, physical_block);
+    map_page(HEAP_START, physical_block, PTE_PRESENT | PTE_RW);
 
     head = (heap_block_t*)HEAP_START;
     head->magic = HEAP_MAGIC;
@@ -62,7 +62,7 @@ void* kmalloc(size_t size)
 
     for (size_t i = 0; i < pages_needed; i++) {
         uint32_t physical_new_page = (uint32_t)pmm_alloc_block();
-        map_page(heap_end_vaddr, physical_new_page);
+        map_page(heap_end_vaddr, physical_new_page, PTE_PRESENT | PTE_RW);
         heap_end_vaddr += 4096;
     }
 

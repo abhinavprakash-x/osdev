@@ -42,7 +42,7 @@ void kmain(void)
     gdt_init();
     printf("[ OK ] GDT\n");
 
-    tss_init();
+    tss_init(0xA0000); // Set the initial kernel stack pointer
     printf("[ OK ] TSS\n");
     
     idt_init();

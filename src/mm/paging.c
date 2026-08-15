@@ -36,21 +36,26 @@ void paging_init(void)
     enable_paging();
 }
 
-void map_page(uint32_t virtual_addr, uint32_t physical_addr)
+void map_page(uint32_t virtual_addr, uint32_t physical_addr, uint32_t flags)
 {
     uint32_t page_dir_idx = (virtual_addr >> 22) & 0x3FF;
     uint32_t page_table_idx = (virtual_addr >> 12) & 0x3FF;
 
-    uint32_t entry = physical_addr | PTE_RW | PTE_PRESENT;
+    uint32_t entry = physical_addr | flags;
     uint32_t* v_page_dir = (uint32_t*)0xFFFFF000;
 
     if((v_page_dir[page_dir_idx] & PTE_PRESENT) == 0) {
         uint32_t physical_new_table = (uint32_t)pmm_alloc_block();
-        v_page_dir[page_dir_idx] = physical_new_table | PTE_RW | PTE_PRESENT;
+        v_page_dir[page_dir_idx] = physical_new_table | PTE_RW | PTE_PRESENT | (flags & PTE_USER);
 
         // Use the magic virtual address to zero out the newly mapped table!
         uint32_t* v_new_table = (uint32_t*)(0xFFC00000 + (page_dir_idx * PAGE_SIZE));
         memset(v_new_table, 0, PAGE_SIZE);
+    }
+    else if (flags & PTE_USER)
+    {
+        // Existing page table must also permit user access.
+        v_page_dir[page_dir_idx] |= PTE_USER;
     }
 
     uint32_t* pt = (uint32_t*)(0xFFC00000 + (page_dir_idx * PAGE_SIZE));

@@ -363,7 +363,7 @@ void test_paging(void)
     printf("[Paging]\n");
     uint32_t phys = (uint32_t)pmm_alloc_block();
 
-    map_page(0x20000000, phys);
+    map_page(0x20000000, phys, PTE_PRESENT | PTE_RW);
     assert_equal_int(phys, get_physical_addr(0x20000000), "paging(map)");
     assert_equal_int(phys + 100, get_physical_addr(0x20000064), "paging(offset)");
     unmap_page(0x20000000);
