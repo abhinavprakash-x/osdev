@@ -66,6 +66,9 @@ void kmain(void)
     printf("[ OK ] Kernel Heap\n");
 
     // Test User Mode (temporary, remove later)
+    printf("\nTesting User Mode...\n");
+    printf("Press Ctrl+Alt+2 in Qemu\nThen type info registers to verify that the CPU is in user mode.\n");
+    printf("If it says\nEAX: deadbeef and EIP: 0040005 CPL: 3\nThen the test was successful.\n");
     extern uint8_t user_test_start[];
     extern uint8_t user_test_end[];
 
