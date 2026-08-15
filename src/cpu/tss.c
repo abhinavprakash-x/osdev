@@ -4,7 +4,7 @@
 
 static tss_entry_t tss;
 
-void tss_init(void)
+void tss_init(uint32_t kernel_stack)
 {
     // Clear the TSS
     memset(&tss, 0, sizeof(tss_entry_t));
@@ -12,7 +12,7 @@ void tss_init(void)
     // Set the Ring 0 stack segment.
     // esp0 will be updated before entering userspace.
     tss.ss0 = KERNEL_DATA_SELECTOR;
-    tss.esp0 = 0;
+    tss.esp0 = kernel_stack;
 
     // Set the I/O map base to the end of the TSS
     tss.iomap_base = sizeof(tss_entry_t);

@@ -32,7 +32,7 @@ typedef struct {
     uint16_t iomap_base;
 } __attribute__((packed)) tss_entry_t;
 
-void tss_init(void);
+void tss_init(uint32_t kernel_stack);
 void tss_set_kernel_stack(uint32_t esp0);
 
 extern void tss_flush(void);
