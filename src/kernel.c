@@ -12,12 +12,14 @@
 #include "mm/pmm.h"
 #include "mm/paging.h"
 #include "libc/stdlib.h"
+#include "libc/mem.h"
 #include "mm/heap.h"
 #include "task/task.h"
 #include "task/scheduler.h"
 #include "cpu/gdt.h"
 #include "cpu/tss.h"
 
+extern void enter_usermode(uint32_t user_eip, uint32_t user_esp);
 extern void shell_init(void);
 extern void shell_input(char c);
 
@@ -62,6 +64,19 @@ void kmain(void)
 
     heap_init();
     printf("[ OK ] Kernel Heap\n");
+
+    // Test User Mode (temporary, remove later)
+    extern uint8_t user_test_start[];
+    extern uint8_t user_test_end[];
+
+    uint32_t user_code_size = (uint32_t)(user_test_end - user_test_start);
+    uint32_t user_code_phys = (uint32_t)pmm_alloc_block();
+    memcpy((void*)user_code_phys, user_test_start, user_code_size);
+    map_page(0x400000, user_code_phys, PTE_PRESENT | PTE_RW | PTE_USER);
+
+    uint32_t user_stack_phys = (uint32_t)pmm_alloc_block();
+    map_page(0x800000, user_stack_phys, PTE_PRESENT | PTE_RW | PTE_USER);
+    enter_usermode(0x400000, 0x800000 + 4096);
 
     scheduler_init();
     printf("[ OK ] Scheduler\n");
