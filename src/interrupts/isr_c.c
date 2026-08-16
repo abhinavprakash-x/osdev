@@ -7,6 +7,7 @@
 #include "../drivers/vga.h"
 #include "../libc/stdlib.h"
 #include "idt.h"
+#include "../syscall.h"
 
 extern void keyboard_handler(void);
 extern void pit_handler(void);
@@ -48,6 +49,11 @@ void isr_handler(registers_t *regs)
     else if(regs->int_no == 33)
     {
         keyboard_handler();
+    }
+    // Handle system calls
+    else if(regs->int_no == 128)
+    {
+        syscall_handler(regs);
     }
     // CPU Exceptions (0-31)
     else if(regs->int_no < 32)

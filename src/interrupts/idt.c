@@ -21,6 +21,7 @@ extern void isr20(); extern void isr21(); extern void isr22(); extern void isr23
 extern void isr24(); extern void isr25(); extern void isr26(); extern void isr27();
 extern void isr28(); extern void isr29(); extern void isr30(); extern void isr31();
 extern void isr32(); extern void isr33();
+extern void isr128();
 extern void isr_unhandled();
 
 static struct idt_entry* idt = (struct idt_entry*)IDT_PHYSICAL_ADDR;
@@ -33,6 +34,16 @@ static void set_idt_gate(int n, uint32_t handler)
     idt[n].zero        = 0;
     idt[n].type_attr   = 0x8E;  // 0x8E breaks down to: 10001110 
     // where 1 (Present) | 00 (Ring 0 Privilege) | 0 (Storage Segment) | 1110 (32-bit Interrupt Gate)
+    idt[n].offset_high = (handler >> 16) & 0xFFFF;
+}
+
+static void set_idt_gate_user(int n, uint32_t handler)
+{
+    idt[n].offset_low  = handler & 0xFFFF;
+    idt[n].selector    = 0x08;
+    idt[n].zero        = 0;
+    idt[n].type_attr   = 0xEE; // 0xEE breaks down to: 11101110
+    // where 1 (Present) | 11 (Ring 3 Privilege) | 0 (Storage Segment) | 1110 (32-bit Interrupt Gate)
     idt[n].offset_high = (handler >> 16) & 0xFFFF;
 }
 
@@ -66,6 +77,9 @@ void idt_init(void)
     // Map the hardware IRQs
     set_idt_gate(32, (uint32_t)isr32);  // IRQ0: PIT
     set_idt_gate(33, (uint32_t)isr33);  // IRQ1: PS/2 Keyboard
+
+    // Map the system call interrupt (int 0x80) to a user-level ISR
+    set_idt_gate_user(128, (uint32_t)isr128);
 
     // Tell the CPU where the IDT is located using `idt_load.asm`
     idt_load((uint32_t)&idtp);

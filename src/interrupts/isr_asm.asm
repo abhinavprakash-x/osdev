@@ -59,6 +59,9 @@ ISR_NOERRCODE 31
 ISR_NOERRCODE 32
 ISR_NOERRCODE 33
 
+; System Calls
+ISR_NOERRCODE 128
+
 ; The C function we will call in `isr_c.c`
 extern isr_handler
 
