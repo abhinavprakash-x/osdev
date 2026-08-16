@@ -1,6 +1,6 @@
 #include "syscall.h"
-#include "libc/stdlib.h"
-#include "interrupts/idt.h"
+#include "../libc/stdlib.h"
+#include "../interrupts/idt.h"
 
 void syscall_handler(registers_t *regs)
 {

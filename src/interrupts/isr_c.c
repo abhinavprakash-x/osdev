@@ -7,7 +7,7 @@
 #include "../drivers/vga.h"
 #include "../libc/stdlib.h"
 #include "idt.h"
-#include "../syscall.h"
+#include "../syscall/syscall.h"
 
 extern void keyboard_handler(void);
 extern void pit_handler(void);

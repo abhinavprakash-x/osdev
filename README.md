@@ -45,6 +45,7 @@ system calls are the next major development milestones.
 - Kernel-managed GDT
 - Task State Segment (TSS)
 - Ring 0 to Ring 3 Transition
+- Test Sys Call
 
 ## Roadmap
 
@@ -110,6 +111,7 @@ osdev/
 |       |----- mm/             # PMM, paging and kernel heap
 |       |----- task/           # Multitasking and scheduling
 |       |----- cpu/            # GDT, TSS, etc.
+|       |----- syscall/        # Syscall files
 |
 |----- linker.ld    # Linker script
 |----- Makefile     # Build commands
