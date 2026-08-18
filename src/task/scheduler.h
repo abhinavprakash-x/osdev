@@ -1,6 +1,8 @@
 #pragma once
 #include "task.h"
 
+extern task_t* current_task;
+
 void scheduler_init(void);
 void task_add(task_t* new_task);
 void schedule(void);

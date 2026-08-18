@@ -75,7 +75,7 @@ void kmain(void)
     uint32_t user_code_size = (uint32_t)(user_test_end - user_test_start);
     uint32_t user_code_phys = (uint32_t)pmm_alloc_block();
     memcpy((void*)user_code_phys, user_test_start, user_code_size);
-    map_page(0x400000, user_code_phys, PTE_PRESENT | PTE_RW | PTE_USER);
+    map_page(0x400000, user_code_phys, PTE_PRESENT | PTE_USER);
 
     uint32_t user_stack_phys = (uint32_t)pmm_alloc_block();
     map_page(0x800000, user_stack_phys, PTE_PRESENT | PTE_RW | PTE_USER);
