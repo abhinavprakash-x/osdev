@@ -65,6 +65,12 @@ void kmain(void)
     heap_init();
     printf("[ OK ] Kernel Heap\n");
 
+    scheduler_init();
+    printf("[ OK ] Scheduler\n");
+
+    printf("\n----------------------------------------\n");
+    printf("Kernel initialization complete.\n");
+
     // Test User Mode (temporary, remove later)
     printf("\nTesting User Mode...\n");
     printf("Press Ctrl+Alt+2 in Qemu\nThen type info registers to verify that the CPU is in user mode.\n");
@@ -81,11 +87,7 @@ void kmain(void)
     map_page(0x800000, user_stack_phys, PTE_PRESENT | PTE_RW | PTE_USER);
     enter_usermode(0x400000, 0x800000 + 4096);
 
-    scheduler_init();
-    printf("[ OK ] Scheduler\n");
-
-    printf("\n----------------------------------------\n");
-    printf("Kernel initialization complete.\n");
+    task_add(create_user_task("user_test", 0x400000, 0x800000 + 4096));
 
     // Launch Shell
     task_add(create_task("shell", task_shell));

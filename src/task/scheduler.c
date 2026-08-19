@@ -2,6 +2,7 @@
 #include "../mm/heap.h"
 #include "../drivers/pit.h"
 #include "../libc/stdlib.h"
+#include "../cpu/tss.h"
 
 task_t* current_task = 0;
 
@@ -16,6 +17,7 @@ void scheduler_init(void)
     main_task->name = "kmain";
     main_task->state = TASK_RUNNING;
     main_task->stack_allocation = 0;
+    main_task->kernel_stack_top = 0;
     main_task->wake_time = 0;
     
     // 2. Make it a circular linked list pointing to itself
@@ -99,6 +101,11 @@ void schedule(void)
 
     if (previous_task != current_task)
     {
+        if(current_task->kernel_stack_top != 0)
+            tss_set_kernel_stack(current_task->kernel_stack_top);
+        
+        else tss_set_kernel_stack(0xA0000);
+        
         switch_task(&previous_task->esp, &current_task->esp);
     }
 }
