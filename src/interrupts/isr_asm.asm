@@ -71,6 +71,7 @@ extern isr_handler
 isr_common_stub:
     pushad          ; Push edi, esi, ebp, esp, ebx, edx, ecx, eax
     
+    xor eax, eax
     mov ax, ds      ; Save the current data segment to the stack
     push eax        
 
@@ -92,7 +93,6 @@ isr_common_stub:
 
     popad           ; Restore all general purpose registers
     add esp, 8      ; Clean up the pushed error code and pushed ISR number from the stack
-    sti             ; Turn interrupts back on
     iret            ; "Interrupt Return" - pops CS, EIP, EFLAGS, and SS
 
 ; -------------------------------------------

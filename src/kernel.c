@@ -85,7 +85,6 @@ void kmain(void)
 
     uint32_t user_stack_phys = (uint32_t)pmm_alloc_block();
     map_page(0x800000, user_stack_phys, PTE_PRESENT | PTE_RW | PTE_USER);
-    enter_usermode(0x400000, 0x800000 + 4096);
 
     task_add(create_user_task("user_test", 0x400000, 0x800000 + 4096));
 

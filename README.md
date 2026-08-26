@@ -45,7 +45,7 @@ system calls are the next major development milestones.
 - Kernel-managed GDT
 - Task State Segment (TSS)
 - Ring 0 to Ring 3 Transition
-- Test Sys Call
+- System call interface
 
 ## Roadmap
 
