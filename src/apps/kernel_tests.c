@@ -92,6 +92,9 @@ static void scheduler_test_task_b(void)
     task_exit();
 }
 
+extern uint8_t user_test_start[];
+extern uint8_t user_test_end[];
+
 /* Test Runner */
 void test_all(void)
 {
@@ -394,4 +397,21 @@ void test_scheduler(void)
     assert_equal_int(test_counter_a, 5, "Scheduler executed task A");
     assert_equal_int(test_counter_b, 5, "Scheduler executed task B");
     printf("Scheduler tests complete.\n");
+}
+
+void launch_user_test(void)
+{
+    printf("[User Mode / Syscalls]\n");
+
+    uint32_t user_code_size = (uint32_t)(user_test_end - user_test_start);
+    uint32_t user_code_phys = (uint32_t)pmm_alloc_block();
+
+    memcpy((void*)user_code_phys, user_test_start, user_code_size);
+    map_page(0x400000, user_code_phys, PTE_PRESENT | PTE_USER);
+
+    uint32_t user_stack_phys = (uint32_t)pmm_alloc_block();
+    map_page(0x800000, user_stack_phys, PTE_PRESENT | PTE_RW | PTE_USER);
+
+    task_add(create_user_task("user_test", 0x400000, 0x800000 + 4096));
+    printf("[ OK ] User test task created\n");
 }
