@@ -46,12 +46,12 @@ system calls are the next major development milestones.
 - Task State Segment (TSS)
 - Ring 0 to Ring 3 Transition
 - System call interface
+- Per-process address spaces
 
 ## Roadmap
 
 ### Userspace
-- [ ] System call interface
-- [ ] Per-process address spaces
+- [ ] System call interface (add more Sys Calls)
 - [ ] ELF executable loader
 
 ### Storage
