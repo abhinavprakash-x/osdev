@@ -1,5 +1,6 @@
 #pragma once
 #include <stdint.h>
+#include <stdbool.h>
 
 // Page Table / Page Directory Flags
 #define PTE_PRESENT 0x01 // Page is present in memory
@@ -9,6 +10,7 @@
 // Architecture Constants
 #define PAGE_SIZE   4096 // 4KB pages
 #define PT_ENTRIES  1024 // 1024 entries per table/directory
+#define USER_SPACE_END 0xBFFFFFFF
 
 extern void load_page_directory(uint32_t* dir);
 extern void enable_paging(void);
@@ -22,3 +24,5 @@ uint32_t* paging_get_kernel_directory(void);
 uint32_t* paging_create_address_space(void);
 void paging_switch_directory(uint32_t* directory);
 void paging_map_page(uint32_t* directory, uint32_t virtual_addr, uint32_t physical_addr, uint32_t flags);
+
+bool user_range_valid(uint32_t virtual_addr, uint32_t size);

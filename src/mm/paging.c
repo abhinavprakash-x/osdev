@@ -154,3 +154,43 @@ void paging_map_page(uint32_t* directory, uint32_t virtual_addr, uint32_t physic
     map_page(virtual_addr, physical_addr, flags);
     if (old_directory != directory) paging_switch_directory(directory);
 }
+
+bool user_range_valid(uint32_t virtual_addr, uint32_t size)
+{
+    if (size == 0) return true;
+
+    uint32_t end = virtual_addr + size - 1;
+
+    // Detect 32-bit address wraparound.
+    if (end < virtual_addr) return false;
+    if (virtual_addr > USER_SPACE_END || end > USER_SPACE_END) return false;
+
+    uint32_t first_page = virtual_addr & 0xFFFFF000;
+    uint32_t last_page  = end & 0xFFFFF000;
+    uint32_t* v_page_dir = (uint32_t*)0xFFFFF000;
+
+    for (uint32_t page = first_page;; page += PAGE_SIZE)
+    {
+        uint32_t page_dir_idx  = (page >> 22) & 0x3FF;
+        uint32_t page_table_idx = (page >> 12) & 0x3FF;
+
+        uint32_t pde = v_page_dir[page_dir_idx];
+
+        if ((pde & PTE_PRESENT) == 0 || (pde & PTE_USER) == 0)
+        {
+            return false;
+        }
+
+        uint32_t* pt = (uint32_t*)(0xFFC00000 + page_dir_idx * PAGE_SIZE);
+        uint32_t pte = pt[page_table_idx];
+
+        if ((pte & PTE_PRESENT) == 0 || (pte & PTE_USER) == 0)
+        {
+            return false;
+        }
+
+        if (page == last_page) break;
+    }
+
+    return true;
+}

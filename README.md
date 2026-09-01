@@ -51,7 +51,6 @@ system calls are the next major development milestones.
 ## Roadmap
 
 ### Userspace
-- [ ] System call interface (add more Sys Calls)
 - [ ] ELF executable loader
 
 ### Storage
@@ -61,6 +60,7 @@ system calls are the next major development milestones.
 
 ### Longer Term
 - [ ] User-space shell
+- [ ] More System Calls
 - [ ] UEFI boot support
 - [ ] Graphics / GUI
 
