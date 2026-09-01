@@ -1,6 +1,7 @@
 #include "task.h"
 #include "../mm/heap.h"
 #include "scheduler.h"
+#include "../mm/paging.h"
 
 extern void enter_usermode(uint32_t user_eip, uint32_t user_esp);
 static uint32_t next_pid = 1;
@@ -44,6 +45,7 @@ task_t* create_task(const char* name, void (*entry_point)(void))
     new_task->state = TASK_READY;
     new_task->stack_allocation = stack_memory; // CRITICAL for kfree later!
     new_task->kernel_stack_top = 0;
+    new_task->page_directory = paging_get_kernel_directory();
     new_task->wake_time = 0;
 
     return new_task;
@@ -87,6 +89,15 @@ task_t* create_user_task(const char* name, uint32_t user_eip, uint32_t user_esp)
     new_task->name = name;
     new_task->state = TASK_READY;
     new_task->stack_allocation = stack_memory; 
+    new_task->page_directory = paging_create_address_space();
+
+    if (new_task->page_directory == 0)
+    {
+        // TODO: proper cleanup/panic
+        kfree(stack_memory);
+        kfree(new_task);
+        return 0;
+    }
     new_task->wake_time = 0;
 
     return new_task;

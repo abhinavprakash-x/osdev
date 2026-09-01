@@ -80,6 +80,9 @@ $(BUILD_DIR)/boot.img: $(BUILD_DIR)/bootloader.bin $(BUILD_DIR)/kernel.bin
 run: all
 	qemu-system-i386 -drive format=raw,file=$(BUILD_DIR)/boot.img
 
+debug: all
+	qemu-system-i386 -drive format=raw,file=$(BUILD_DIR)/boot.img -d int -D qemu-int.log
+
 # --------------------------
 # Debug (VERY useful)
 # --------------------------

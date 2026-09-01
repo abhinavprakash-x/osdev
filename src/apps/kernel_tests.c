@@ -405,13 +405,35 @@ void launch_user_test(void)
 
     uint32_t user_code_size = (uint32_t)(user_test_end - user_test_start);
     uint32_t user_code_phys = (uint32_t)pmm_alloc_block();
+    
+    task_t* user_task = create_user_task("user_test", 0x400000, 0x800000 + 4096);
+    
+    if (user_task == 0)
+    {
+        printf("[FAIL] Could not create user task\n");
+        pmm_free_block((void*)user_code_phys);
+        return;
+    }
+
+    if(!user_code_phys)
+    {
+        printf("[FAIL] Could not allocate user code page\n");
+        return;
+    }
 
     memcpy((void*)user_code_phys, user_test_start, user_code_size);
-    map_page(0x400000, user_code_phys, PTE_PRESENT | PTE_USER);
-
     uint32_t user_stack_phys = (uint32_t)pmm_alloc_block();
-    map_page(0x800000, user_stack_phys, PTE_PRESENT | PTE_RW | PTE_USER);
 
-    task_add(create_user_task("user_test", 0x400000, 0x800000 + 4096));
+    if(!user_stack_phys)
+    {
+        printf("[FAIL] Could not allocate user stack\n");
+        pmm_free_block((void*)user_code_phys);
+        return;
+    }
+
+    paging_map_page(user_task->page_directory, 0x400000, user_code_phys, PTE_PRESENT | PTE_USER);
+    paging_map_page(user_task->page_directory, 0x800000, user_stack_phys, PTE_PRESENT | PTE_RW | PTE_USER);
+    task_add(user_task);
+
     printf("[ OK ] User test task created\n");
 }

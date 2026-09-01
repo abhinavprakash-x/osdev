@@ -8,13 +8,14 @@
 #include "pmm.h"
 #include "../libc/mem.h"
 
-static uint32_t* page_directory = 0;
+static uint32_t* kernel_page_directory = 0;
+static uint32_t* current_page_directory = 0;
 
 void paging_init(void)
 {
     // Allocate a 4KB block for the Page Directory and zero all entries
-    page_directory = pmm_alloc_block();
-    memset(page_directory, 0, PT_ENTRIES * sizeof(uint32_t));
+    kernel_page_directory = pmm_alloc_block();
+    memset(kernel_page_directory, 0, PT_ENTRIES * sizeof(uint32_t));
 
     // Allocate a 4KB block for our first Page Table
     uint32_t* page_table = pmm_alloc_block();
@@ -27,12 +28,13 @@ void paging_init(void)
     }
     
     // Insert the newly created Page Table into the first slot of the Page Directory
-    page_directory[0] = (uint32_t)page_table | PTE_PRESENT | PTE_RW;
+    kernel_page_directory[0] = (uint32_t)page_table | PTE_PRESENT | PTE_RW;
 
     // Recursive Paging
-    page_directory[1023] = (uint32_t)page_directory | PTE_PRESENT | PTE_RW;
+    kernel_page_directory[1023] = (uint32_t)kernel_page_directory | PTE_PRESENT | PTE_RW;
+    current_page_directory = kernel_page_directory;
 
-    load_page_directory(page_directory);
+    load_page_directory(kernel_page_directory);
     enable_paging();
 }
 
@@ -103,4 +105,52 @@ uint32_t get_physical_addr(uint32_t virtual_addr)
 
     uint32_t physical_frame = pt[page_table_idx] & 0xFFFFF000;
     return physical_frame + offset;
+}
+
+uint32_t* paging_get_kernel_directory(void)
+{
+    return kernel_page_directory;
+}
+
+uint32_t* paging_create_address_space(void)
+{
+    uint32_t* new_directory = pmm_alloc_block();
+    if (new_directory == 0) return 0;
+
+    memset(new_directory, 0, PAGE_SIZE);
+
+    /*
+     * Copy kernel mappings only.
+     * Any PDE marked USER belongs to the current process
+     * and must NOT be copied.
+    */
+    for (uint32_t i = 0; i < 1023; ++i)
+    {
+        uint32_t entry = kernel_page_directory[i];
+        if ((entry & PTE_PRESENT) && !(entry & PTE_USER))
+        {
+            new_directory[i] = entry;
+        }
+    }
+
+    /*
+     * Recursive mapping for this address space.
+     */
+    new_directory[1023] = (uint32_t)new_directory | PTE_PRESENT | PTE_RW;
+    return new_directory;
+}
+
+void paging_switch_directory(uint32_t* directory)
+{
+    current_page_directory = directory;
+    load_page_directory(directory);
+}
+
+void paging_map_page(uint32_t* directory, uint32_t virtual_addr, uint32_t physical_addr, uint32_t flags)
+{
+    uint32_t* old_directory = current_page_directory;
+    if (old_directory != directory) paging_switch_directory(directory);
+
+    map_page(virtual_addr, physical_addr, flags);
+    if (old_directory != directory) paging_switch_directory(directory);
 }

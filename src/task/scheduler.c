@@ -3,6 +3,7 @@
 #include "../drivers/pit.h"
 #include "../libc/stdlib.h"
 #include "../cpu/tss.h"
+#include "../mm/paging.h"
 
 task_t* current_task = 0;
 
@@ -18,6 +19,7 @@ void scheduler_init(void)
     main_task->state = TASK_RUNNING;
     main_task->stack_allocation = 0;
     main_task->kernel_stack_top = 0;
+    main_task->page_directory = paging_get_kernel_directory();
     main_task->wake_time = 0;
     
     // 2. Make it a circular linked list pointing to itself
@@ -106,6 +108,7 @@ void schedule(void)
         
         else tss_set_kernel_stack(0xA0000);
         
+        paging_switch_directory(current_task->page_directory);
         switch_task(&previous_task->esp, &current_task->esp);
     }
 }

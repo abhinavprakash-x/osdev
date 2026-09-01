@@ -17,3 +17,8 @@ void paging_init(void);
 void map_page(uint32_t virtual_addr, uint32_t physical_addr, uint32_t flags);
 void unmap_page(uint32_t virtual_addr);
 uint32_t get_physical_addr(uint32_t virtual_addr);
+
+uint32_t* paging_get_kernel_directory(void);
+uint32_t* paging_create_address_space(void);
+void paging_switch_directory(uint32_t* directory);
+void paging_map_page(uint32_t* directory, uint32_t virtual_addr, uint32_t physical_addr, uint32_t flags);

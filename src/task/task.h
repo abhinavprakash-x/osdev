@@ -16,6 +16,7 @@ typedef struct task{
 
     void* stack_allocation;
     uint32_t kernel_stack_top;
+    uint32_t* page_directory;
 
     uint32_t wake_time;
     struct task* next;
