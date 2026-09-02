@@ -13,7 +13,15 @@ static uint32_t heap_end_vaddr = HEAP_START;
 void heap_init(void)
 {
     uint32_t physical_block = (uint32_t)pmm_alloc_block();
-    map_page(HEAP_START, physical_block, PTE_PRESENT | PTE_RW);
+    if (physical_block == 0) {
+        while(1) __asm__ volatile ("cli; hlt");
+    }
+
+    if (!map_page(HEAP_START, physical_block, PTE_PRESENT | PTE_RW))
+    {
+        pmm_free_block((void*)physical_block);
+        while(1) __asm__ volatile ("cli; hlt");
+    }
 
     head = (heap_block_t*)HEAP_START;
     head->magic = HEAP_MAGIC;
@@ -59,11 +67,43 @@ void* kmalloc(size_t size)
     size_t pages_needed = (total_size_needed + 4095) / 4096;
     
     uint32_t block_start_vaddr = heap_end_vaddr;
+    size_t pages_allocated = 0;
 
     for (size_t i = 0; i < pages_needed; i++) {
         uint32_t physical_new_page = (uint32_t)pmm_alloc_block();
-        map_page(heap_end_vaddr, physical_new_page, PTE_PRESENT | PTE_RW);
-        heap_end_vaddr += 4096;
+
+        if(physical_new_page == 0) {
+            // Rollback any pages that were allocated
+            for (size_t j = 0; j < pages_allocated; j++)
+            {
+                uint32_t rollback_vaddr = block_start_vaddr + (j * PAGE_SIZE);
+                uint32_t rollback_phys = get_physical_addr(rollback_vaddr) & 0xFFFFF000;
+                unmap_page(rollback_vaddr);
+
+                if (rollback_phys != 0)
+                {
+                    pmm_free_block((void*)rollback_phys);
+                }
+            }
+            return 0; // Allocation failed
+        }
+        if (!map_page(heap_end_vaddr, physical_new_page, PTE_PRESENT | PTE_RW))
+        {
+            // Rollback any pages that were allocated
+            for (size_t j = 0; j < pages_allocated; j++) {
+                uint32_t rollback_vaddr = block_start_vaddr + (j * PAGE_SIZE);
+                uint32_t rollback_phys = get_physical_addr(rollback_vaddr) & 0xFFFFF000;
+                unmap_page(rollback_vaddr);
+                if (rollback_phys != 0)
+                {
+                    pmm_free_block((void*)rollback_phys);
+                }
+            }
+            pmm_free_block((void*)physical_new_page);
+            return 0; // Allocation failed
+        }
+        heap_end_vaddr += PAGE_SIZE;
+        pages_allocated++;
     }
 
     heap_block_t* new_block = (heap_block_t*)block_start_vaddr;

@@ -15,10 +15,19 @@ void paging_init(void)
 {
     // Allocate a 4KB block for the Page Directory and zero all entries
     kernel_page_directory = pmm_alloc_block();
+    if (kernel_page_directory == 0)
+    {
+        while(1) __asm__ volatile ("cli; hlt");
+    }
+
     memset(kernel_page_directory, 0, PT_ENTRIES * sizeof(uint32_t));
 
     // Allocate a 4KB block for our first Page Table
     uint32_t* page_table = pmm_alloc_block();
+    if (page_table == 0)
+    {
+        while(1) __asm__ volatile ("cli; hlt");
+    }
 
     // Identity map the first 4MB (0x0 to 0x3FFFFF)
     for(int i = 0; i < PT_ENTRIES; ++i)
@@ -38,7 +47,7 @@ void paging_init(void)
     enable_paging();
 }
 
-void map_page(uint32_t virtual_addr, uint32_t physical_addr, uint32_t flags)
+bool map_page(uint32_t virtual_addr, uint32_t physical_addr, uint32_t flags)
 {
     uint32_t page_dir_idx = (virtual_addr >> 22) & 0x3FF;
     uint32_t page_table_idx = (virtual_addr >> 12) & 0x3FF;
@@ -48,6 +57,10 @@ void map_page(uint32_t virtual_addr, uint32_t physical_addr, uint32_t flags)
 
     if((v_page_dir[page_dir_idx] & PTE_PRESENT) == 0) {
         uint32_t physical_new_table = (uint32_t)pmm_alloc_block();
+        if(physical_new_table == 0) {
+            return false; // Allocation failed
+        }
+
         v_page_dir[page_dir_idx] = physical_new_table | PTE_RW | PTE_PRESENT | (flags & PTE_USER);
 
         // Use the magic virtual address to zero out the newly mapped table!
@@ -64,6 +77,7 @@ void map_page(uint32_t virtual_addr, uint32_t physical_addr, uint32_t flags)
     pt[page_table_idx] = entry;
 
     __asm__ volatile ("invlpg (%0)" : : "b"(virtual_addr) : "memory");
+    return true;
 }
 
 void unmap_page(uint32_t virtual_addr)
@@ -146,13 +160,14 @@ void paging_switch_directory(uint32_t* directory)
     load_page_directory(directory);
 }
 
-void paging_map_page(uint32_t* directory, uint32_t virtual_addr, uint32_t physical_addr, uint32_t flags)
+bool paging_map_page(uint32_t* directory, uint32_t virtual_addr, uint32_t physical_addr, uint32_t flags)
 {
     uint32_t* old_directory = current_page_directory;
     if (old_directory != directory) paging_switch_directory(directory);
 
-    map_page(virtual_addr, physical_addr, flags);
+    bool result = map_page(virtual_addr, physical_addr, flags);
     if (old_directory != directory) paging_switch_directory(old_directory);
+    return result;
 }
 
 bool user_range_valid(uint32_t virtual_addr, uint32_t size)

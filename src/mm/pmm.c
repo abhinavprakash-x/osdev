@@ -107,6 +107,7 @@ void* pmm_alloc_block(void)
 
 void pmm_free_block(void* physical_addr)
 {
+    if(physical_addr == 0) return;
     uint32_t bit = (uint32_t)physical_addr / PMM_BLOCK_SIZE;
     clear_bit(bit);
     used_blocks--;

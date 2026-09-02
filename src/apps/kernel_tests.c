@@ -366,7 +366,8 @@ void test_paging(void)
     printf("[Paging]\n");
     uint32_t phys = (uint32_t)pmm_alloc_block();
 
-    map_page(0x20000000, phys, PTE_PRESENT | PTE_RW);
+    assert_true(phys != 0, "paging(test frame allocation)");
+    assert_true(map_page(0x20000000, phys, PTE_PRESENT | PTE_RW), "paging(map)");
     assert_equal_int(phys, get_physical_addr(0x20000000), "paging(map)");
     assert_equal_int(phys + 100, get_physical_addr(0x20000064), "paging(offset)");
     unmap_page(0x20000000);
@@ -405,19 +406,17 @@ void launch_user_test(void)
 
     uint32_t user_code_size = (uint32_t)(user_test_end - user_test_start);
     uint32_t user_code_phys = (uint32_t)pmm_alloc_block();
-    
+    if(!user_code_phys)
+    {
+        printf("[FAIL] Could not allocate user code page\n");
+        return;
+    }
+
     task_t* user_task = create_user_task("user_test", 0x400000, 0x800000 + 4096);
-    
     if (user_task == 0)
     {
         printf("[FAIL] Could not create user task\n");
         pmm_free_block((void*)user_code_phys);
-        return;
-    }
-
-    if(!user_code_phys)
-    {
-        printf("[FAIL] Could not allocate user code page\n");
         return;
     }
 
