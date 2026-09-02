@@ -1,9 +1,6 @@
 # Bare Minimum OS
 A 32-bit x86 operating system written from scratch in C and x86 Assembly.
 
-Currently, the OS runs entirely in kernel mode (Ring 0). User mode and
-system calls are the next major development milestones.
-
 ## Features
 
 ### Boot & CPU

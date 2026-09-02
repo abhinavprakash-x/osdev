@@ -152,7 +152,7 @@ void paging_map_page(uint32_t* directory, uint32_t virtual_addr, uint32_t physic
     if (old_directory != directory) paging_switch_directory(directory);
 
     map_page(virtual_addr, physical_addr, flags);
-    if (old_directory != directory) paging_switch_directory(directory);
+    if (old_directory != directory) paging_switch_directory(old_directory);
 }
 
 bool user_range_valid(uint32_t virtual_addr, uint32_t size)
