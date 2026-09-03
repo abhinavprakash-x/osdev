@@ -90,14 +90,36 @@ void unmap_page(uint32_t virtual_addr)
     uint32_t* v_page_dir = (uint32_t*)0xFFFFF000;
 
     // If the directory entry isn't present, the page is already unmapped
-    if((v_page_dir[page_dir_idx] & PTE_PRESENT) == 0) {
+    if((v_page_dir[page_dir_idx] & PTE_PRESENT) == 0)
+    {
         return; 
     }
     
     uint32_t* pt = (uint32_t*)(0xFFC00000 + (page_dir_idx * PAGE_SIZE));
-    pt[page_table_idx] = 0;
+    if((pt[page_table_idx] & PTE_PRESENT) == 0)
+    {
+        return; // Page is already unmapped
+    }
 
+    pt[page_table_idx] = 0;
     __asm__ volatile ("invlpg (%0)" : : "b"(virtual_addr) : "memory");
+
+    if ((v_page_dir[page_dir_idx] & PTE_USER) == 0)
+    {
+        return;
+    }
+
+    for (uint32_t i = 0; i < PT_ENTRIES; ++i)
+    {
+        if ((pt[i] & PTE_PRESENT) != 0)
+        {
+            return; // Found a present page, so don't free the table
+        }
+    }
+
+    uint32_t page_table_phys = v_page_dir[page_dir_idx] & 0xFFFFF000;
+    v_page_dir[page_dir_idx] = 0;
+    pmm_free_block((void*)page_table_phys);
 }
 
 uint32_t get_physical_addr(uint32_t virtual_addr)

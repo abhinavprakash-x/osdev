@@ -43,6 +43,7 @@ static void test_pmm(void);
 static void test_paging(void);
 static void test_address_space_cleanup(void);
 static void test_user_mapping_shared_kernel_pde(void);
+static void test_page_table_reclamation(void);
 
 static void assert_true(int cond, const char *name)
 {
@@ -155,11 +156,15 @@ void test_memory(void)
     printf("[Memory]\n");
     test_memset();
     test_memcpy();
+
     test_heap();
     test_pmm();
     test_paging();
+
     test_address_space_cleanup();
     test_user_mapping_shared_kernel_pde();
+    test_page_table_reclamation();
+
     printf("Memory tests complete.\n");
 }
 
@@ -373,8 +378,10 @@ void test_paging(void)
 
     assert_true(phys != 0, "paging(test frame allocation)");
     assert_true(map_page(0x20000000, phys, PTE_PRESENT | PTE_RW), "paging(map)");
+
     assert_equal_int(phys, get_physical_addr(0x20000000), "paging(map)");
     assert_equal_int(phys + 100, get_physical_addr(0x20000064), "paging(offset)");
+
     unmap_page(0x20000000);
     assert_equal_int(0, get_physical_addr(0x20000000), "paging(unmap)");
 
@@ -445,6 +452,125 @@ static void test_user_mapping_shared_kernel_pde(void)
     paging_destroy_address_space(directory);
 
     printf("User mapping isolation tests complete.\n");
+}
+
+static void test_page_table_reclamation(void)
+{
+    printf("[Page Table Reclamation]\n");
+
+    /*
+     * We use two virtual pages inside the same 4 MiB region.
+     *
+     * 0x00400000 -> PDE index 1, PTE index 0
+     * 0x00401000 -> PDE index 1, PTE index 1
+     *
+     * Therefore both mappings must share the same page table.
+     */
+    const uint32_t virtual_addr_1 = 0x00400000;
+    const uint32_t virtual_addr_2 = 0x00401000;
+
+    const uint32_t page_dir_idx = (virtual_addr_1 >> 22) & 0x3FF;
+    const uint32_t page_table_idx_1 = (virtual_addr_1 >> 12) & 0x3FF;
+    const uint32_t page_table_idx_2 = (virtual_addr_2 >> 12) & 0x3FF;
+
+    // Sanity-check that our test really uses the same PDE but different PTEs.
+    assert_true( page_dir_idx == ((virtual_addr_2 >> 22) & 0x3FF), "page table reclamation(same PDE)");
+    assert_true(page_table_idx_1 != page_table_idx_2, "page table reclamation(different PTEs)");
+
+    int used_before = get_used_memory();
+    uint32_t* directory = paging_create_address_space();
+
+    assert_true(directory != 0, "page table reclamation(create address space)");
+    if (directory == 0) return;
+
+    // Allocate two physical frames for the two mappings.
+    uint32_t phys1 = (uint32_t)pmm_alloc_block();
+    uint32_t phys2 = (uint32_t)pmm_alloc_block();
+
+    assert_true(phys1 != 0, "page table reclamation(frame 1)");
+    assert_true(phys2 != 0, "page table reclamation(frame 2)");
+
+    if (phys1 == 0 || phys2 == 0)
+    {
+        if (phys1 != 0) pmm_free_block((void*)phys1);
+        if (phys2 != 0) pmm_free_block((void*)phys2);
+        paging_destroy_address_space(directory);
+        return;
+    }
+
+    // Map both pages into the private address space.
+    bool mapped1 = paging_map_page(directory, virtual_addr_1, phys1, PTE_PRESENT | PTE_RW | PTE_USER);
+    bool mapped2 = paging_map_page(directory, virtual_addr_2, phys2, PTE_PRESENT | PTE_RW | PTE_USER);
+
+    assert_true(mapped1, "page table reclamation(map 1)");
+    assert_true(mapped2, "page table reclamation(map 2)");
+
+    if (!mapped1 || !mapped2)
+    {
+        paging_switch_directory(directory);
+        if (mapped1) unmap_page(virtual_addr_1);
+        if (mapped2) unmap_page(virtual_addr_2);
+
+        paging_switch_directory(paging_get_kernel_directory());
+
+        pmm_free_block((void*)phys1);
+        pmm_free_block((void*)phys2);
+
+        paging_destroy_address_space(directory);
+        return;
+    }
+
+    paging_switch_directory(directory);
+
+    uint32_t* page_directory = (uint32_t*)0xFFFFF000;
+    uint32_t* page_table = (uint32_t*)(0xFFC00000 + (page_dir_idx * PAGE_SIZE));
+
+    /*
+     * STATE 1:
+     * Both mappings exist.
+     */
+    assert_true((page_directory[page_dir_idx] & PTE_PRESENT) != 0, "page table reclamation(PDE present after mappings)");
+    assert_true((page_directory[page_dir_idx] & PTE_USER) != 0, "page table reclamation(PDE user)");
+    assert_true((page_table[page_table_idx_1] & PTE_PRESENT) != 0, "page table reclamation(PTE 1 present)");
+    assert_true((page_table[page_table_idx_2] & PTE_PRESENT) != 0, "page table reclamation(PTE 2 present)");
+    assert_true((page_table[page_table_idx_1] & 0xFFFFF000) == phys1, "page table reclamation(PTE 1 physical frame)");
+    assert_true((page_table[page_table_idx_2] & 0xFFFFF000) == phys2, "page table reclamation(PTE 2 physical frame)");
+
+    // Both mappings must use the SAME page table.
+    uint32_t page_table_phys = page_directory[page_dir_idx] & 0xFFFFF000;
+    assert_true(page_table_phys != 0, "page table reclamation(page table physical address)");
+
+    /*
+     * STATE 2:
+     * Remove the first mapping.
+     * The page table MUST remain because PTE #2 still exists.
+     */
+    unmap_page(virtual_addr_1);
+
+    assert_true((page_table[page_table_idx_1] & PTE_PRESENT) == 0, "page table reclamation(PTE 1 removed)");
+    assert_true((page_table[page_table_idx_2] & PTE_PRESENT) != 0, "page table reclamation(PTE 2 survives)");
+    assert_true((page_directory[page_dir_idx] & PTE_PRESENT) != 0, "page table reclamation(table survives non-empty)");
+
+    /*
+     * STATE 3:
+     * Remove the final mapping.
+     * The page table MUST be reclaimed because it is now empty.
+     */
+    unmap_page(virtual_addr_2);
+
+    assert_true((page_table[page_table_idx_2] & PTE_PRESENT) == 0, "page table reclamation(PTE 2 removed)");
+    assert_true(page_directory[page_dir_idx] == 0, "page table reclamation(empty table reclaimed)");
+
+    paging_switch_directory(paging_get_kernel_directory());
+    pmm_free_block((void*)phys1);
+    pmm_free_block((void*)phys2);
+    paging_destroy_address_space(directory);
+
+    int used_after = get_used_memory();
+
+    assert_equal_int(used_after, used_before, "page table reclamation(PMM usage restored)");
+
+    printf("Page table reclamation tests complete.\n");
 }
 
 /* Scheduler/Multitasking tests */
