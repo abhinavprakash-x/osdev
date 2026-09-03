@@ -38,7 +38,9 @@ static void test_itox(void);
 static void test_memset(void);
 static void test_memcpy(void);
 static void test_heap(void);
+
 static void test_pmm(void);
+static void test_pmm_free_validation(void);
 
 static void test_paging(void);
 static void test_address_space_cleanup(void);
@@ -156,11 +158,12 @@ void test_memory(void)
     printf("[Memory]\n");
     test_memset();
     test_memcpy();
-
     test_heap();
-    test_pmm();
-    test_paging();
 
+    test_pmm();
+    test_pmm_free_validation();
+
+    test_paging();
     test_address_space_cleanup();
     test_user_mapping_shared_kernel_pde();
     test_page_table_reclamation();
@@ -368,6 +371,70 @@ void test_pmm(void)
     pmm_free_block(b);
 
     printf("PMM tests complete.\n");
+}
+
+static void test_pmm_free_validation(void)
+{
+    printf("[PMM Free Validation]\n");
+
+    int used_before = get_used_memory();
+
+    // Test 1: Normal allocation/free
+    uint32_t phys = (uint32_t)pmm_alloc_block();
+
+    assert_true(phys != 0, "pmm free validation(allocate)");
+    if (phys == 0) return;
+
+    int used_after_alloc = get_used_memory();
+    assert_equal_int(used_after_alloc, used_before + 1, "pmm free validation(allocation accounting)");
+    pmm_free_block((void*)phys);
+
+    assert_equal_int(get_used_memory(), used_before, "pmm free validation(normal free)");
+
+    // Test 2: Double free
+
+    phys = (uint32_t)pmm_alloc_block();
+    assert_true(phys != 0, "pmm free validation(double free allocate)");
+    if (phys == 0) return;
+
+    pmm_free_block((void*)phys);
+
+    // The second free MUST NOT decrement used_blocks.
+    int used_after_first_free = get_used_memory();
+    pmm_free_block((void*)phys);
+    assert_equal_int(get_used_memory(), used_after_first_free, "pmm free validation(double free)");
+
+    // Test 3: Unaligned physical address
+    phys = (uint32_t)pmm_alloc_block();
+    assert_true(phys != 0, "pmm free validation(unaligned allocate)");
+    if (phys == 0) return;
+
+    int used_before_invalid_free = get_used_memory();
+    pmm_free_block((void*)(phys + 1));
+
+    assert_equal_int(get_used_memory(), used_before_invalid_free, "pmm free validation(unaligned free rejected)");
+    pmm_free_block((void*)phys);
+
+    assert_equal_int(get_used_memory(), used_before, "pmm free validation(unaligned original frame preserved)");
+
+    // Test 4: Reserved physical frame
+    int used_before_reserved_free = get_used_memory();
+    pmm_free_block((void*)0x1000);
+    assert_equal_int(get_used_memory(), used_before_reserved_free, "pmm free validation(reserved frame rejected)");
+
+    uint32_t test_phys = (uint32_t)pmm_alloc_block();
+    assert_true(test_phys != 0x1000, "pmm free validation(reserved frame not allocatable)");
+    if (test_phys != 0) pmm_free_block((void*)test_phys);
+
+    // Test 5: Out-of-range address
+    int used_before_invalid_address = get_used_memory();
+    pmm_free_block((void*)0xFFFFFFFF);
+    assert_equal_int(get_used_memory(), used_before_invalid_address, "pmm free validation(out of range rejected)");
+
+    // Final invariant check: used_blocks must be the same as before the test.
+    assert_equal_int(get_used_memory(), used_before, "pmm free validation(final accounting)");
+
+    printf("PMM free validation tests complete.\n");
 }
 
 /* paging.h Tests */
