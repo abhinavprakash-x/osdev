@@ -10,7 +10,14 @@ task_t* create_task(const char* name, void (*entry_point)(void))
 {
     // 1. Allocate the PCB and a 4KB stack from the heap
     task_t* new_task = (task_t*)kmalloc(sizeof(task_t));
+    if (new_task == 0) return 0;
+
     void* stack_memory = kmalloc(4096);
+    if (stack_memory == 0)
+    {
+        kfree(new_task);
+        return 0;
+    }
     
     // 2. Point to the very top of the newly allocated 4KB stack
     uint32_t* stack = (uint32_t*)((uint8_t*)stack_memory + 4096);
@@ -54,7 +61,14 @@ task_t* create_task(const char* name, void (*entry_point)(void))
 task_t* create_user_task(const char* name, uint32_t user_eip, uint32_t user_esp)
 {
     task_t* new_task = (task_t*)kmalloc(sizeof(task_t));
+    if (new_task == 0) return 0;
+
     void* stack_memory = kmalloc(4096);
+    if (stack_memory == 0)
+    {
+        kfree(new_task);
+        return 0;
+    }
     
     uint32_t* stack = (uint32_t*)((uint8_t*)stack_memory + 4096);
 

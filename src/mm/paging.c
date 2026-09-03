@@ -209,3 +209,45 @@ bool user_range_valid(uint32_t virtual_addr, uint32_t size)
 
     return true;
 }
+
+void paging_destroy_address_space(uint32_t* directory)
+{
+    if (directory == 0) return;
+    if (directory == kernel_page_directory) return;
+
+    if (current_page_directory == directory)
+    {
+        paging_switch_directory(kernel_page_directory);
+    }
+
+    paging_switch_directory(directory);
+    uint32_t* v_page_dir = (uint32_t*)0xFFFFF000;
+
+    for (uint32_t i = 0; i < 1023; ++i)
+    {
+        uint32_t pde = v_page_dir[i];
+
+        if ((pde & PTE_PRESENT) == 0) continue;
+        if ((pde & PTE_USER) == 0) continue;
+
+        uint32_t page_table_phys = pde & 0xFFFFF000;
+        uint32_t* page_table =(uint32_t*)(0xFFC00000 + (i * PAGE_SIZE));
+
+        for (uint32_t j = 0; j < PT_ENTRIES; ++j)
+        {
+            uint32_t pte = page_table[j];
+            if ((pte & PTE_PRESENT) == 0) continue;
+
+            uint32_t physical_page = pte & 0xFFFFF000;
+            if (physical_page != 0) pmm_free_block((void*)physical_page);
+
+            page_table[j] = 0;
+        }
+
+        pmm_free_block((void*)page_table_phys);
+        v_page_dir[i] = 0;
+    }
+
+    paging_switch_directory(kernel_page_directory);
+    pmm_free_block((void*)directory);
+}

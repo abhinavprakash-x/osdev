@@ -40,6 +40,7 @@ static void test_memcpy(void);
 static void test_heap(void);
 static void test_pmm(void);
 static void test_paging(void);
+static void test_address_space_cleanup(void);
 
 static void assert_true(int cond, const char *name)
 {
@@ -155,6 +156,7 @@ void test_memory(void)
     test_heap();
     test_pmm();
     test_paging();
+    test_address_space_cleanup();
     printf("Memory tests complete.\n");
 }
 
@@ -375,6 +377,42 @@ void test_paging(void)
 
     pmm_free_block((void*)phys);
     printf("Paging tests complete.\n");
+}
+
+static void test_address_space_cleanup(void)
+{
+    printf("[Address Space Cleanup]\n");
+
+    int before = get_used_memory();
+    uint32_t* directory = paging_create_address_space();
+
+    assert_true(directory != 0, "address space(create)");
+    if (directory == 0) return;
+
+    uint32_t phys = (uint32_t)pmm_alloc_block();
+    assert_true(phys != 0, "address space(test frame)");
+
+    if (phys == 0)
+    {
+        paging_destroy_address_space(directory);
+        return;
+    }
+
+    bool mapped = paging_map_page(directory, 0x400000, phys, PTE_PRESENT | PTE_RW | PTE_USER);
+    assert_true(mapped, "address space(map)");
+
+    if (!mapped)
+    {
+        pmm_free_block((void*)phys);
+        paging_destroy_address_space(directory);
+        return;
+    }
+
+    paging_destroy_address_space(directory);
+    int after = get_used_memory();
+
+    assert_equal_int(before, after, "address space(cleanup)");
+    printf("Address space cleanup tests complete.\n");
 }
 
 /* Scheduler/Multitasking tests */

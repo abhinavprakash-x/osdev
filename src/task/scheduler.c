@@ -64,6 +64,7 @@ void schedule(void)
         {
             // Unlink the dead task from the list
             prev_iterator->next = iterator->next;
+            paging_destroy_address_space(iterator->page_directory);
             
             kfree(iterator->stack_allocation);
             kfree(iterator);
