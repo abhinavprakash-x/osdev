@@ -55,9 +55,11 @@ bool map_page(uint32_t virtual_addr, uint32_t physical_addr, uint32_t flags)
     uint32_t entry = physical_addr | flags;
     uint32_t* v_page_dir = (uint32_t*)0xFFFFF000;
 
-    if((v_page_dir[page_dir_idx] & PTE_PRESENT) == 0) {
+    if((v_page_dir[page_dir_idx] & PTE_PRESENT) == 0)
+    {
         uint32_t physical_new_table = (uint32_t)pmm_alloc_block();
-        if(physical_new_table == 0) {
+        if(physical_new_table == 0)
+        {
             return false; // Allocation failed
         }
 
@@ -67,10 +69,9 @@ bool map_page(uint32_t virtual_addr, uint32_t physical_addr, uint32_t flags)
         uint32_t* v_new_table = (uint32_t*)(0xFFC00000 + (page_dir_idx * PAGE_SIZE));
         memset(v_new_table, 0, PAGE_SIZE);
     }
-    else if (flags & PTE_USER)
+    else if((flags & PTE_USER) && !(v_page_dir[page_dir_idx] & PTE_USER))
     {
-        // Existing page table must also permit user access.
-        v_page_dir[page_dir_idx] |= PTE_USER;
+        return false; // Cannot map user page in a kernel-only table
     }
 
     uint32_t* pt = (uint32_t*)(0xFFC00000 + (page_dir_idx * PAGE_SIZE));

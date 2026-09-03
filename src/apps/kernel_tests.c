@@ -34,13 +34,15 @@ static void test_itoa(void);
 static void test_xtoi(void);
 static void test_itox(void);
 
-/* mem.h Tests */
+/* memory related Tests */
 static void test_memset(void);
 static void test_memcpy(void);
 static void test_heap(void);
 static void test_pmm(void);
+
 static void test_paging(void);
 static void test_address_space_cleanup(void);
+static void test_user_mapping_shared_kernel_pde(void);
 
 static void assert_true(int cond, const char *name)
 {
@@ -157,6 +159,7 @@ void test_memory(void)
     test_pmm();
     test_paging();
     test_address_space_cleanup();
+    test_user_mapping_shared_kernel_pde();
     printf("Memory tests complete.\n");
 }
 
@@ -413,6 +416,35 @@ static void test_address_space_cleanup(void)
 
     assert_equal_int(before, after, "address space(cleanup)");
     printf("Address space cleanup tests complete.\n");
+}
+
+static void test_user_mapping_shared_kernel_pde(void)
+{
+    printf("[User Mapping Isolation]\n");
+
+    uint32_t* directory = paging_create_address_space();
+    assert_true(directory != 0, "user mapping(shared pde create)");
+    if (directory == 0) return;
+
+    uint32_t phys = (uint32_t)pmm_alloc_block();
+
+    assert_true(phys != 0, "user mapping(shared pde frame)");
+    if (phys == 0)
+    {
+        paging_destroy_address_space(directory);
+        return;
+    }
+
+    bool mapped = paging_map_page( directory, 0x00100000, phys, PTE_PRESENT | PTE_RW | PTE_USER);
+    assert_true(!mapped, "user mapping(shared pde rejected)");
+
+    uint32_t kernel_pde = paging_get_kernel_directory()[0];
+    assert_true((kernel_pde & PTE_USER) == 0, "user mapping(kernel pde unchanged)");
+
+    pmm_free_block((void*)phys);
+    paging_destroy_address_space(directory);
+
+    printf("User mapping isolation tests complete.\n");
 }
 
 /* Scheduler/Multitasking tests */
