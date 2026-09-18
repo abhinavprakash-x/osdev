@@ -49,7 +49,7 @@
 ## Critical bugs
 
 1. **`.bss` is never zero-initialized**  
-   `kernel_entry.asm` jumps directly to `kmain`, while the flat binary linker configuration does not emit `.bss` contents. Globals such as `tick_count`, keyboard state, and buffers can start with garbage values.
+   `kernel_entry.asm` jumps directly to `kmain`, while the flat binary linker configuration does not emit `.bss` contents. Globals such as `tick_count`, keyboard state, and buffers can start with garbage values. `FIXED: 18-09-2026`
 
 2. **Scheduler hangs when every task is waiting**  
    `schedule` loops forever if no task is runnable. When called with interrupts disabled, timer ticks cannot advance, so sleeping tasks never wake.
