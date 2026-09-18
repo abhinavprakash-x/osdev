@@ -25,21 +25,21 @@ static void set_bit(int bit)
 {
     int idx = bit / 32;
     int bit_offset = bit % 32;
-    mem_map[idx] = mem_map[idx] | (1 << bit_offset);
+    mem_map[idx] = mem_map[idx] | (1u << bit_offset);
 }
 
 static void clear_bit(int bit)
 {
     int idx = bit / 32;
     int bit_offset = bit % 32;
-    mem_map[idx] &= ~(1 << bit_offset);
+    mem_map[idx] &= ~(1u << bit_offset);
 }
 
 static int test_bit(int bit)
 {
     int idx = bit / 32;
     int bit_offset = bit % 32;
-    return (mem_map[idx] & (1 << bit_offset)) != 0;
+    return (mem_map[idx] & (1u << bit_offset)) != 0;
 }
 
 void pmm_init(void)

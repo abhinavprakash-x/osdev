@@ -154,7 +154,7 @@
     `bootloader.asm` does not check the BIOS call’s carry flag or provide a fallback.
 
 35. **PMM bitmap shifts use signed `1`**  
-    `set_bit` and related functions perform `1 << 31`, which is undefined behavior in C.
+    `set_bit` and related functions perform `1 << 31`, which is undefined behavior in C. `FIXED: 18-09-2026`
 
 ## Build and test defects
 
