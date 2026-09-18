@@ -17,6 +17,7 @@
 
 6. **E820 map processing can corrupt memory**  
    `pmm_init` does not clamp E820 ranges to the 4-GB bitmap limit. High-memory or overflowing entries can call `clear_bit()` out of bounds.
+   `FIXED: 18-09-2026`
 
 7. **Reserved physical frames can be released and reallocated**  
    `pmm_free_block` checks only whether a bit is set, not whether the frame belongs to a usable E820 region. Passing a reserved address above 1 MB makes hardware/kernel memory available for reuse.
@@ -67,7 +68,7 @@
    `paging_create_address_space` copies kernel PDEs only once. Later heap growth or other kernel mappings are absent from older address spaces, causing faults while kernel code runs under those page directories.
 
 7. **PMM can write beyond its bitmap**  
-   `pmm_init` converts 64-bit E820 ranges to bitmap indexes without clipping them to the 4-GB bitmap limit.
+   `pmm_init` converts 64-bit E820 ranges to bitmap indexes without clipping them to the 4-GB bitmap limit. `FIXED: 18-09-2026`
 
 8. **Reserved E820 memory above 1 MB can be freed**  
    `pmm_free_block` only protects the first 1 MB. Reserved or MMIO frames above 1 MB can be incorrectly returned to the allocator.
@@ -111,7 +112,7 @@
     `paging_destroy_address_space` frees every mapped physical page, which breaks if frames are shared or aliased.
 
 21. **E820 ranges are rounded incorrectly**  
-    `pmm_init` floors both start and length. Partial pages can be incorrectly treated as usable.
+    `pmm_init` floors both start and length. Partial pages can be incorrectly treated as usable. `FIXED: 18-09-2026`
 
 22. **E820 extended attributes and entry validity are ignored**  
     `mem_map_start` and `pmm_init` do not validate returned signatures, entry sizes, or disabled-region attributes.

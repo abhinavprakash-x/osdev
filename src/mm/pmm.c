@@ -56,16 +56,30 @@ void pmm_init(void)
 
     for(uint32_t i = 0; i < entry_count; ++i)
     {
-        // Region Type 1 means standard, usable RAM
-        if(mmap[i].region_type == E820_USABLE)
-        {
-            uint32_t start_frame = mmap[i].base_addr / PMM_BLOCK_SIZE;
-            uint32_t num_frames = mmap[i].region_length / PMM_BLOCK_SIZE;
+        if(mmap[i].region_type != E820_USABLE) continue; // Ignore non-usable memory
 
-            total_blocks += num_frames;
-            // Mark these specific frames as available
-            for(uint32_t j = 0; j < num_frames; ++j) clear_bit(start_frame + j);
-        }
+        uint64_t base = mmap[i].base_addr;
+        uint64_t length = mmap[i].region_length;
+
+        if(base >= 0x100000000ULL) continue; // Ignore memory above 4GB
+
+        uint64_t end;
+        if(base + length > 0x100000000ULL) end = 0x100000000ULL;
+        else end = base + length;
+
+        // Align the base address to the next 4KB boundary
+        uint64_t aligned_start = (base + PMM_BLOCK_SIZE - 1) & ~(uint64_t)(PMM_BLOCK_SIZE - 1);
+        uint64_t aligned_end = end & ~(uint64_t)(PMM_BLOCK_SIZE - 1);
+
+        // No complete page exists in this region.
+        if(aligned_start >= aligned_end) continue;
+
+        uint32_t start_frame = (uint32_t)(aligned_start / PMM_BLOCK_SIZE);
+        uint32_t num_frames = (uint32_t)((aligned_end - aligned_start) / PMM_BLOCK_SIZE);
+
+        total_blocks += num_frames;
+        // Mark these specific frames as available
+        for(uint32_t j = 0; j < num_frames; ++j) clear_bit(start_frame + j);
     }
 
     // Protect the first 1MB of memory (0x0 to 0xFFFFF).
