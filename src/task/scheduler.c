@@ -147,7 +147,7 @@ void task_sleep(uint32_t milliseconds)
     if (current_task == 0) return;
 
     // Formula: (ms * frequency) / 1000
-    uint32_t ticks_to_wait = (milliseconds * get_timer_freq() + 999) / 1000; 
+    uint32_t ticks_to_wait = (uint32_t)((uint64_t)milliseconds * get_timer_freq() + 999) / 1000;
 
     current_task->wake_time = get_ticks() + ticks_to_wait;
     current_task->state = TASK_WAITING;

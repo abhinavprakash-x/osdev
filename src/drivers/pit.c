@@ -60,7 +60,7 @@ uint32_t ticks_to_ms(uint32_t ticks)
     if (timer_freq == 0)
         return 0;
 
-    return (ticks * 1000) / timer_freq;
+    return (uint32_t)((uint64_t)ticks * 1000) / timer_freq;
 }
 
 uint32_t get_timer_freq(void)
