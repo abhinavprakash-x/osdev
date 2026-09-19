@@ -15,6 +15,9 @@
 #include "../mm/heap.h"
 #include "../task/scheduler.h"
 
+#define INT_MIN -2147483648
+#define INT_MAX 2147483647
+
 static char buffer[256];
 static int buffer_index = 0;
 
@@ -103,7 +106,7 @@ void execute_command(void)
             else if (operator == '*') result = num1 * num2;
             else if (operator == '/')
             {
-                if (num2 == 0)
+                if (num2 == 0 || (num1 == INT_MIN && num2 == -1))
                 {
                     printf("Error: Division by zero\n");
                     error = 1;
@@ -116,8 +119,7 @@ void execute_command(void)
     }
     else if (strcmp(buffer, "time") == 0)
     {
-        // PIT runs at 100Hz, so ticks / 100 = seconds
-        printf("Seconds since boot: %d\n", get_ticks() / 100);
+        printf("Milliseconds since boot: %d\n", ticks_to_ms(get_ticks()));
     }
     else if (strncmp(buffer, "test", 4) == 0)
     {
