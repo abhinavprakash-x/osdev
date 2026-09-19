@@ -34,6 +34,7 @@ void scheduler_init(void)
 
 void task_add(task_t* new_task)
 {
+    if (new_task == 0) return;
     if (current_task == 0) return;
 
     // Traverse the circular list to find the last node
