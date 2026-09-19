@@ -12,6 +12,11 @@ void scheduler_init(void)
     //1. Create PID 0 for the initial kernel execution context.
     // After initialization, kmain acts as the scheduler's idle task.
     task_t* main_task = (task_t*)kmalloc(sizeof(task_t));
+    if(main_task == 0)
+    {
+        // Handle allocation failure by halting the system, as we cannot proceed without a main task.
+        __asm__ volatile("cli; hlt");
+    }
 
     main_task->esp = 0;
     main_task->pid = 0;
