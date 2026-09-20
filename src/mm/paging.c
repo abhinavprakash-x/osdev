@@ -4,9 +4,9 @@
  * Currently configured to identity-map the first 4MB of RAM.
  */
 
-#include "paging.h"
-#include "pmm.h"
-#include "../libc/mem.h"
+#include "mm/paging.h"
+#include "mm/pmm.h"
+#include "libc/mem.h"
 
 static uint32_t* kernel_page_directory = 0;
 static uint32_t* current_page_directory = 0;

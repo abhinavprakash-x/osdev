@@ -1,4 +1,4 @@
-#include "gdt.h"
+#include "cpu/gdt.h"
 
 static struct gdt_entry gdt[GDT_ENTRIES];
 static struct gdt_ptr gdt_descriptor;

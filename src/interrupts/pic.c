@@ -4,8 +4,8 @@
  * do not collide with CPU exceptions (like page faults).
  */
 
-#include "pic.h"
-#include "../drivers/port_io.h"
+#include "interrupts/pic.h"
+#include "drivers/port_io.h"
 
 void pic_init(void)
 {

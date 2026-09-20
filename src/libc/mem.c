@@ -4,7 +4,7 @@
  * the standard C library is unavailable. 
  */
 
-#include "mem.h"
+#include "libc/mem.h"
 
 void *memset(void *dest, int val, size_t count)
 {

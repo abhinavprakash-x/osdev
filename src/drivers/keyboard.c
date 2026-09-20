@@ -5,8 +5,8 @@
  * passes them to the active shell.
  */
 
-#include "keyboard.h"
-#include "port_io.h"
+#include "drivers/keyboard.h"
+#include "drivers/port_io.h"
 
 // Hardware I/O Ports
 #define KEYBOARD_DATA_PORT 0x60

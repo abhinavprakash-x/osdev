@@ -1,8 +1,8 @@
-#include "syscall.h"
-#include "../interrupts/idt.h"
-#include "../task/scheduler.h"
-#include "../drivers/vga.h"
-#include "../mm/paging.h"
+#include "syscall/syscall.h"
+#include "interrupts/idt.h"
+#include "task/scheduler.h"
+#include "drivers/vga.h"
+#include "mm/paging.h"
 
 static int32_t sys_write(const char* buffer, uint32_t length)
 {

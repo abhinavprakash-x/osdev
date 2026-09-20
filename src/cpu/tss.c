@@ -1,6 +1,6 @@
-#include "tss.h"
-#include "gdt.h"
-#include "../libc/mem.h"
+#include "cpu/tss.h"
+#include "cpu/gdt.h"
+#include "libc/mem.h"
 
 static tss_entry_t tss;
 

@@ -5,15 +5,15 @@
  * will migrate this to Ring 3 (User Mode) with system calls.
  */
 
-#include "../drivers/vga.h"
-#include "../libc/string.h"
-#include "../libc/mem.h"
-#include "../libc/stdlib.h"
-#include "../drivers/pit.h"
-#include "kernel_tests.h"
-#include "../mm/pmm.h"
-#include "../mm/heap.h"
-#include "../task/scheduler.h"
+#include "drivers/vga.h"
+#include "libc/string.h"
+#include "libc/mem.h"
+#include "libc/stdlib.h"
+#include "drivers/pit.h"
+#include "apps/kernel_tests.h"
+#include "mm/pmm.h"
+#include "mm/heap.h"
+#include "task/scheduler.h"
 
 #define INT_MIN -2147483648
 #define INT_MAX 2147483647

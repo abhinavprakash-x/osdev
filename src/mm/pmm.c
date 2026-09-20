@@ -4,8 +4,8 @@
  * are free and which are in use by the kernel or hardware.
  */
 
-#include "pmm.h"
-#include "../libc/mem.h"
+#include "mm/pmm.h"
+#include "libc/mem.h"
 
 // Architecture limits based on a 32-bit OS (Maximum 4GB RAM)
 #define PMM_BLOCK_SIZE     4096

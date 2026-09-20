@@ -31,7 +31,7 @@
    `launch_user_test` allocates one physical page, then copies `user_code_size` bytes. If the assembled test exceeds 4096 bytes, this overruns the allocated frame.
 
 10. **Sleep duration arithmetic overflows**  
-    `task_sleep` multiplies milliseconds by timer frequency in 32-bit arithmetic. Large durations wrap and produce incorrect wake times.
+    `task_sleep` multiplies milliseconds by timer frequency in 32-bit arithmetic. Large durations wrap and produce incorrect wake times. `FIXED: 19-09-2026`
 
 11. **Keyboard input silently overwrites unread input**  
     `keyboard_handler` advances `buffer_head` without checking whether the circular buffer is full, losing keystrokes and corrupting queue ordering.
@@ -184,3 +184,10 @@ I did not include these as confirmed defects:
 - Identity mapping of the first 4 MiB: intentional bootstrap behavior, although coarse.
 - Missing `-fno-stack-protector` and orphan-section handling: build hardening improvements, not confirmed runtime bugs.
 - `paging_destroy_address_space()` temporarily switching back into the directory being destroyed: poor design, but not independently incorrect given the current mappings.
+
+
+41. **E820 Entry Overlap is not checked in `pmm_init()`**
+The E820 map is assumed to be well-formed, but the BIOS can return overlapping entries (in real hardware). This is not an issue in the current test environment, but it is a potential source of future bugs. The E820 specification does not forbid overlapping entries, and the kernel should validate the map before using it.
+
+42. **alloc 50000000 then test causes a crash** 
+Page Directory only maps ~4 MB and anything beyond that is unmapped and causes a page fault.

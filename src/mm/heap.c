@@ -1,6 +1,6 @@
-#include "heap.h"
-#include "paging.h"
-#include "pmm.h"
+#include "mm/heap.h"
+#include "mm/paging.h"
+#include "mm/pmm.h"
 
 #define HEAP_START 0x10000000
 #define HEAP_MAGIC 0xDEADBEEF

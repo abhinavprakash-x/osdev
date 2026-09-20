@@ -4,7 +4,7 @@
  * respective Interrupt Service Routines (ISRs).
  */
 
-#include "idt.h"
+#include "interrupts/idt.h"
 
 #define IDT_ENTRIES 256
 #define IDT_PHYSICAL_ADDR 0x90000

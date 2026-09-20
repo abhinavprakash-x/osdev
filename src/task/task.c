@@ -1,7 +1,7 @@
-#include "task.h"
-#include "../mm/heap.h"
-#include "scheduler.h"
-#include "../mm/paging.h"
+#include "task/task.h"
+#include "task/scheduler.h"
+#include "mm/heap.h"
+#include "mm/paging.h"
 
 extern void enter_usermode(uint32_t user_eip, uint32_t user_esp);
 static uint32_t next_pid = 1;

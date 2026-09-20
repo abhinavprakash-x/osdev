@@ -5,17 +5,17 @@
  * core kernel components.
  */
 
-#include "kernel_tests.h"
-#include "../drivers/vga.h"
-#include "../libc/mem.h"
-#include "../libc/string.h"
-#include "../libc/stdlib.h"
-#include "../mm/heap.h"
-#include "../mm/pmm.h"
-#include "../mm/paging.h"
-#include "../drivers/pit.h"
-#include "../task/task.h"
-#include "../task/scheduler.h"
+#include "apps/kernel_tests.h"
+#include "drivers/vga.h"
+#include "libc/mem.h"
+#include "libc/string.h"
+#include "libc/stdlib.h"
+#include "mm/heap.h"
+#include "mm/pmm.h"
+#include "mm/paging.h"
+#include "drivers/pit.h"
+#include "task/task.h"
+#include "task/scheduler.h"
 
 static int tests_passed = 0;
 static int tests_failed = 0;

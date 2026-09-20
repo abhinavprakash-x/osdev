@@ -4,9 +4,9 @@
  * Handles hardware cursor updates, screen scrolling, and control characters.
  */
 
-#include "vga.h"
-#include "../libc/mem.h"
-#include "port_io.h"
+#include "drivers/vga.h"
+#include "libc/mem.h"
+#include "drivers/port_io.h"
 
 // Hardware I/O Ports for the VGA CRT Controller
 #define VGA_CTRL_REGISTER 0x3D4

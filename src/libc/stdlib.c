@@ -4,9 +4,9 @@
  * custom printf implementation using GCC built-in variadic macros.
  */
 
-#include "stdlib.h"
-#include "string.h"
-#include "../drivers/vga.h"
+#include "libc/stdlib.h"
+#include "libc/string.h"
+#include "drivers/vga.h"
 
 typedef __builtin_va_list va_list;
 #define va_start(ap, param) __builtin_va_start(ap, param)

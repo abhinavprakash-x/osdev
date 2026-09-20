@@ -1,9 +1,9 @@
-#include "scheduler.h"
-#include "../mm/heap.h"
-#include "../drivers/pit.h"
-#include "../libc/stdlib.h"
-#include "../cpu/tss.h"
-#include "../mm/paging.h"
+#include "task/scheduler.h"
+#include "mm/heap.h"
+#include "drivers/pit.h"
+#include "libc/stdlib.h"
+#include "cpu/tss.h"
+#include "mm/paging.h"
 
 task_t* current_task = 0;
 

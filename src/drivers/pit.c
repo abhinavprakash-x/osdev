@@ -4,9 +4,9 @@
  * Used for tracking system uptime and providing sleep/delay functionality.
  */
 
-#include "pit.h"
-#include "port_io.h"
-#include "../task/scheduler.h"
+#include "drivers/pit.h"
+#include "drivers/port_io.h"
+#include "task/scheduler.h"
 
 // Hardware I/O Ports
 #define PIT_CMD_PORT      0x43
