@@ -34,7 +34,7 @@ void heap_init(void)
 
 void* kmalloc(size_t size)
 {
-    if(size == 0) return 0;
+    if(size <= 0) return 0;
     size = ALIGN_8(size);
 
     heap_block_t* ptr = head;

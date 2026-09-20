@@ -139,16 +139,17 @@
     `keyboard_handler` advances the producer index without checking whether the buffer is full.
 
 30. **Extended PS/2 scancodes are mishandled**  
-    `keyboard_handler` does not handle `0xE0` prefixes, so arrow and other extended keys are misinterpreted.
+    `keyboard_handler` does not handle `0xE0` prefixes, so arrow and other extended keys are misinterpreted. `NOTE: This is a known limitation of the current keyboard driver and is not a critical issue for the shell application. If needed, the keyboard driver can be extended to handle extended scancodes in the future.`
 
 31. **Calculator can trigger signed division overflow**  
     `calc command` checks division by zero but not `INT_MIN / -1`, which can raise `#DE`.
+    `FIXED: 19-09-2026`
 
 32. **`time` command hard-codes 100 Hz**  
-    `time command` ignores the configurable PIT frequency.
+    `time command` ignores the configurable PIT frequency. `FIXED: 19-09-2026`
 
 33. **Bootloader silently truncates kernels larger than 100 sectors**  
-    `bootloader.asm` always reads 100 sectors, while `Makefile` has no size assertion.
+    `bootloader.asm` always reads 100 sectors, while `Makefile` has no size assertion. `NOTE: Mannualy Update the bootloader.asm and Makefile to read more sectors if the kernel is larger than 100 sectors.`
 
 34. **A20 enable failure is ignored**  
     `bootloader.asm` does not check the BIOS call’s carry flag or provide a fallback.
@@ -171,7 +172,7 @@
     `launch_user_test` subtracts independently declared assembly symbols as if they belonged to one C array.
 
 40. **PID allocation has no wraparound policy**  
-    `create_task` eventually wraps `next_pid` to zero, colliding with the kernel task PID.
+    `create_task` eventually wraps `next_pid` to zero, colliding with the kernel task PID. `NOTE: No One is going to create 4 billion tasks, so this is not a practical concern.`
 
 ## Findings from the attached list that are not independent current bugs
 
