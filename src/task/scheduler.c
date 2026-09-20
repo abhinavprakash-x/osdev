@@ -12,6 +12,11 @@ void scheduler_init(void)
     //1. Create PID 0 for the initial kernel execution context.
     // After initialization, kmain acts as the scheduler's idle task.
     task_t* main_task = (task_t*)kmalloc(sizeof(task_t));
+    if(main_task == 0)
+    {
+        // Handle allocation failure by halting the system, as we cannot proceed without a main task.
+        __asm__ volatile("cli; hlt");
+    }
 
     main_task->esp = 0;
     main_task->pid = 0;
@@ -29,6 +34,7 @@ void scheduler_init(void)
 
 void task_add(task_t* new_task)
 {
+    if (new_task == 0) return;
     if (current_task == 0) return;
 
     // Traverse the circular list to find the last node
@@ -141,7 +147,7 @@ void task_sleep(uint32_t milliseconds)
     if (current_task == 0) return;
 
     // Formula: (ms * frequency) / 1000
-    uint32_t ticks_to_wait = (milliseconds * get_timer_freq() + 999) / 1000; 
+    uint32_t ticks_to_wait = (uint32_t)((uint64_t)milliseconds * get_timer_freq() + 999) / 1000;
 
     current_task->wake_time = get_ticks() + ticks_to_wait;
     current_task->state = TASK_WAITING;

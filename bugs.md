@@ -59,10 +59,11 @@
    `schedule` can eventually unlink and free `current_task`, then continue using it as `prev_iterator` when multiple dead tasks remain.
 
 4. **`scheduler_init()` dereferences failed allocation**  
-   `scheduler_init` does not check whether `kmalloc()` returned `NULL`.
+   `scheduler_init` does not check whether `kmalloc()` returned `NULL`. `FiXED: 19-09-2026`
 
 5. **`task_add()` accepts `NULL` tasks**  
    `task_add` dereferences `new_task` without validation. The test suite asserts allocation success but continues execution even after failure.
+   `FIXED: 19-09-2026`
 
 6. **Existing user address spaces miss later kernel mappings**  
    `paging_create_address_space` copies kernel PDEs only once. Later heap growth or other kernel mappings are absent from older address spaces, causing faults while kernel code runs under those page directories.
