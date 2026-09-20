@@ -1,16 +1,20 @@
 # System Calls
 
-System calls provide the interface between Ring 3 user programs and the kernel. A user program requests a kernel service with software interrupt `int 0x80`. The CPU enters the kernel through ISR 128, the syscall dispatcher examines the syscall number, executes the requested operation, and returns the result in `EAX`.
+Bare Minimum OS provides a small system-call interface between Ring 3 user code and the kernel.
 
-The current syscall interface is intentionally small and is used by the userspace regression program in `src/apps/user_test.asm`.
+A user program invokes a system call with:
+
+```asm
+int 0x80
+```
+
+The IDT maps vector `128` to `isr128`, which enters the common ISR path and eventually calls `syscall_handler()` in C.
 
 ## Syscall ABI
 
-The syscall ABI defines how a user program communicates with the kernel. This ABI is part of the userspace/kernel contract and should remain stable as the kernel grows.
+The current syscall handler uses the following registers:
 
-### Calling convention
-
-| Register | Purpose |
+| Register | Meaning |
 |---|---|
 | `EAX` | Syscall number on entry; return value on exit |
 | `EBX` | First syscall argument |
@@ -19,17 +23,21 @@ The syscall ABI defines how a user program communicates with the kernel. This AB
 | `ESI` | General-purpose register |
 | `EDI` | General-purpose register |
 
-A syscall is invoked with:
+Invocation pattern:
 
 ```asm
 mov eax, <syscall_number>
-; set EBX/ECX/EDX/... as required
+; set EBX/ECX/EDX as required
 int 0x80
 ```
 
-The kernel returns the syscall result in `EAX`.
+The current syscall implementation writes the return value into `regs->eax`.
 
-Negative error values are represented as 32-bit two's-complement values. For example, `-1` is returned as `0xFFFFFFFF`.
+Negative error values are represented as 32-bit two's-complement values. For example:
+
+```text
+-1 = 0xFFFFFFFF
+```
 
 ## Syscall Table
 
@@ -42,13 +50,13 @@ Negative error values are represented as 32-bit two's-complement values. For exa
 | `4` | `SYS_SLEEP` | `EBX = milliseconds` | `0` |
 | `5` | `SYS_GETPID` | none | current PID |
 
-\* `EBX` is reserved for the exit status in the ABI, but the current kernel implementation does not yet preserve or use that status. `SYS_EXIT` currently terminates the current task without returning.
+`SYS_EXIT` reserves `EBX` for an exit status, but the current kernel ignores that value.
 
 Unknown syscall numbers return `-1`.
 
 ## `SYS_TEST` — 0
 
-A simple kernel test syscall used during early userspace development.
+A basic syscall-path sanity check.
 
 ### Usage
 
@@ -63,17 +71,15 @@ int 0x80
 EAX = 42
 ```
 
-This syscall is primarily a sanity check that the Ring 3 → Ring 0 → Ring 3 path is working.
-
 ## `SYS_WRITE` — 1
 
-Writes bytes from a user-space buffer to the kernel console.
+Writes bytes from a Ring 3 buffer to the kernel console using `putchar()`.
 
 ### Arguments
 
 ```text
-EBX = address of user buffer
-ECX = number of bytes to write
+EBX = user buffer address
+ECX = number of bytes
 ```
 
 ### Usage
@@ -93,7 +99,7 @@ On success:
 EAX = number of bytes written
 ```
 
-If the supplied user buffer is invalid or is not accessible from Ring 3:
+If the buffer is null or fails the user-range validation, the syscall returns:
 
 ```text
 EAX = -1
@@ -101,20 +107,30 @@ EAX = -1
 
 ### User pointer validation
 
-`SYS_WRITE` must not trust a pointer supplied by Ring 3. Before reading the buffer, the kernel validates the entire address range against the current process address space.
+Before reading the supplied buffer, `sys_write()` calls:
 
-Validation includes:
+```c
+user_range_valid((uint32_t)buffer, length)
+```
 
-- detecting zero-length and 32-bit address-range overflow;
-- checking that each page is present;
-- checking that both the page-directory entry and page-table entry have the user-accessible (`PTE_USER`) permission; and
-- ensuring the range remains inside the defined user virtual address range.
+The validator:
 
-The complete range is validated before the kernel begins reading from it, so a buffer that crosses into an unmapped or kernel-only page is rejected rather than causing a kernel page fault midway through the write.
+1. Accepts a zero-length range.
+2. Detects 32-bit virtual-address wraparound.
+3. Requires the final address to be at or below `USER_SPACE_END`.
+4. Walks every page touched by the range.
+5. Requires each PDE to be present and `PTE_USER`.
+6. Requires each PTE to be present and `PTE_USER`.
+
+The current `USER_SPACE_END` value is:
+
+```c
+0xBFFFFFFF
+```
 
 ## `SYS_EXIT` — 2
 
-Terminates the current task.
+Terminates the current task by calling `task_exit()`.
 
 ### ABI
 
@@ -122,21 +138,21 @@ Terminates the current task.
 EBX = exit status
 ```
 
-The exit status is reserved by the ABI for future process-management functionality. The current implementation ignores it.
+The current kernel does not preserve or otherwise use this value.
 
 ### Usage
 
 ```asm
-mov eax, SYS_EXIT
 xor ebx, ebx
+mov eax, SYS_EXIT
 int 0x80
 ```
 
-`SYS_EXIT` should never return to user mode. The scheduler marks the task dead and switches to another runnable task.
+The syscall is expected not to return to user code.
 
 ## `SYS_YIELD` — 3
 
-Voluntarily gives up the CPU and allows the scheduler to select another runnable task.
+Voluntarily invokes the scheduler.
 
 ### Usage
 
@@ -151,16 +167,14 @@ int 0x80
 EAX = 0
 ```
 
-A task may resume later from the instruction following `int 0x80`.
-
 ## `SYS_SLEEP` — 4
 
-Blocks the current task for a specified number of milliseconds.
+Blocks the current task for a duration in milliseconds.
 
 ### Arguments
 
 ```text
-EBX = duration in milliseconds
+EBX = milliseconds
 ```
 
 ### Usage
@@ -171,11 +185,7 @@ mov ebx, 2000
 int 0x80
 ```
 
-### Behavior
-
-The current task is changed from `TASK_RUNNING` to `TASK_WAITING`. The scheduler can then run another task while the sleep interval elapses. Timer ticks are used to determine when the task should become runnable again.
-
-When the task is woken, execution continues after the syscall.
+The current task enters `TASK_WAITING` and `task_sleep()` calculates its wake time using the configured PIT frequency.
 
 ### Return value
 
@@ -185,7 +195,7 @@ EAX = 0
 
 ## `SYS_GETPID` — 5
 
-Returns the process/task ID of the currently running task.
+Returns the current task PID.
 
 ### Usage
 
@@ -197,75 +207,115 @@ int 0x80
 ### Return value
 
 ```text
-EAX = current task PID
+EAX = current_task->pid
 ```
 
-PID `0` is used by the kernel's initial task (`kmain`). User tasks are assigned non-zero PIDs.
+PID `0` belongs to the initial `kmain` task. User tasks are assigned non-zero PIDs by the current task-creation code.
 
-## Syscall Execution Flow
+## IDT and ISR Path
 
-The current 32-bit implementation follows this path:
+The syscall path is:
+
+```mermaid
+flowchart TD
+    U[Ring 3 User Program]
+    U -->|int 0x80| I128[IDT Vector 128]
+    I128 --> ISR[isr128 / common ISR stub]
+    ISR --> C[isr_handler registers_t*]
+    C --> S[syscall_handler regs]
+    S --> D{EAX syscall number}
+    D --> T[SYS_TEST]
+    D --> W[SYS_WRITE]
+    D --> X[SYS_EXIT]
+    D --> Y[SYS_YIELD]
+    D --> SL[SYS_SLEEP]
+    D --> PID[SYS_GETPID]
+    T --> RET[Return through iret]
+    W --> RET
+    X --> END[Task termination]
+    Y --> RET
+    SL --> RET
+    PID --> RET
+    RET --> U
+```
+
+The common ISR stub saves the general-purpose register set and current data segment value before entering the C dispatcher. It loads the kernel data selector `0x10` while executing the C handler and restores the saved segment value before returning.
+
+## Ring 3 Transition
+
+The kernel GDT defines:
 
 ```text
-User program (Ring 3)
-        |
-        | int 0x80
-        v
-ISR 128
-        |
-        v
-Common ISR stub
-        |
-        v
-isr_handler()
-        |
-        v
-syscall_handler()
-        |
-        +--> SYS_TEST
-        +--> SYS_WRITE
-        +--> SYS_EXIT
-        +--> SYS_YIELD
-        +--> SYS_SLEEP
-        +--> SYS_GETPID
-        |
-        v
-Return value in EAX
-        |
-        v
-iret
-        |
-        v
-User program (Ring 3)
+Kernel code selector = 0x08
+Kernel data selector = 0x10
+User code selector   = 0x1B
+User data selector   = 0x23
+TSS selector         = 0x28
 ```
 
-The interrupt path saves the CPU state on the task's kernel stack. For a Ring 3 → Ring 0 transition, the CPU uses the task's `TSS.ESP0` as the kernel stack. The scheduler updates that kernel-stack pointer when switching to a user task.
+`enter_usermode()` uses user data selector `0x23`, user code selector `0x1B`, and an `iretd` frame to enter Ring 3.
 
-## Per-Process Address Spaces
+```mermaid
+sequenceDiagram
+    participant K as Kernel / Scheduler
+    participant EU as enter_usermode
+    participant U as Ring 3 Program
 
-User tasks have their own page directory. The scheduler loads the task's address space into `CR3` before restoring its CPU context.
+    K->>EU: user_eip, user_esp
+    EU->>EU: load user data selectors
+    EU->>EU: build SS/ESP/EFLAGS/CS/EIP frame
+    EU->>U: iretd
+    U->>K: int 0x80
+    K->>U: iret
+```
 
-Kernel mappings are shared between address spaces, while user mappings belong to the individual task. This allows multiple user tasks to use the same virtual addresses without sharing their private pages.
+## Per-Task Address Spaces
 
-This is particularly important for syscalls that accept user pointers, such as `SYS_WRITE`: validation is performed against the address space of the currently running task.
+A user task receives a page directory from `paging_create_address_space()`.
 
-## Userspace Testing
+The current implementation copies present kernel-only PDEs from `kernel_page_directory`, skips PDEs marked with `PTE_USER`, and sets PDE 1023 to recursively map the new directory.
 
-`src/apps/user_test.asm` provides a userspace regression test for the syscall ABI. It currently exercises:
+The scheduler calls `paging_switch_directory()` before restoring the selected task's execution context.
+
+For a Ring 3 → Ring 0 interrupt, the CPU uses the task's TSS `esp0` value as the kernel stack. The scheduler updates `esp0` from the selected task's `kernel_stack_top`.
+
+## Current Userspace Test Program
+
+The current userspace regression program is:
+
+```text
+src/apps/user_test.asm
+```
+
+It is assembled as a raw binary and copied by `launch_user_test()`.
+
+The current launcher uses:
+
+```text
+User code virtual address = 0x00400000
+User stack virtual address = 0x00800000
+User stack pointer = 0x00801000
+```
+
+The raw program uses the following syscall sequence:
 
 ```text
 SYS_TEST
 SYS_GETPID
 SYS_WRITE (valid buffer)
-SYS_WRITE (invalid buffer)
+SYS_WRITE (invalid pointer)
 SYS_YIELD
 SYS_SLEEP
 SYS_EXIT
 ```
 
-The test uses `SYS_WRITE` itself to report successful checks, including a deliberately invalid pointer (`0xDEADBEEF`) to verify that the kernel rejects invalid user memory without crashing.
+The invalid-pointer test deliberately passes:
 
-A successful run ends with:
+```text
+0xDEADBEEF
+```
+
+A successful program prints:
 
 ```text
 ================================
@@ -273,16 +323,18 @@ A successful run ends with:
 ================================
 ```
 
-followed by `SYS_EXIT`, after which the user task is removed by the scheduler.
+before invoking `SYS_EXIT`.
+
+### Raw binary address calculation
+
+Because the test is not an ELF executable, it cannot rely on ELF relocation. `user_test.asm` contains a `LOAD_ADDRESS` macro that calculates runtime addresses relative to the `0x00400000` load location.
 
 ## Current Limitations
 
-The syscall layer is intentionally minimal. In particular:
+The current syscall interface is intentionally small:
 
-- `SYS_WRITE` writes directly to the kernel console; file descriptors are not implemented yet.
-- `SYS_EXIT` does not currently expose an exit status to a parent process.
-- There is no userspace C library or generic syscall wrapper layer yet; tests invoke `int 0x80` directly from assembly.
-- The user executable is currently a raw userspace test image rather than an ELF-loaded process.
-- User pointer validation currently checks page permissions, but the broader virtual-memory management and reclamation model is still under development.
-
-As the kernel evolves, new syscalls should be added to the syscall table and their register-level ABI should be documented here at the same time.
+- `SYS_WRITE` writes directly to the kernel console; there are no file descriptors.
+- `SYS_EXIT` accepts an exit-status argument in the ABI but the current kernel ignores it.
+- There is no userspace C library or generic syscall-wrapper layer; the regression program invokes `int 0x80` directly.
+- The userspace executable is currently a raw embedded binary, not an ELF-loaded program.
+- User memory management, task lifetime, and address-space reclamation are still being hardened.

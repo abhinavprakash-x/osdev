@@ -1,122 +1,192 @@
 # Bare Minimum OS
-A 32-bit x86 operating system written from scratch in C and x86 Assembly.
 
-## Features
+A 32-bit i686 operating system written from scratch in C and x86 Assembly.
 
-### Boot & CPU
-- Custom BIOS bootloader with disk loading
+The project currently boots through a custom BIOS bootloader, enters 32-bit protected mode, initializes the kernel's GDT/TSS/IDT/PIC/PIT infrastructure, manages physical and virtual memory, provides a kernel heap, runs scheduled tasks, and contains a small Ring 3 syscall path.
+
+## Current Features
+
+### Boot and CPU
+
+- Custom BIOS bootloader using BIOS disk services and LBA reads
 - 32-bit x86 protected mode
-- Global Descriptor Table (GDT)
-- Interrupt Descriptor Table (IDT) and interrupt service routines
-- 8259 PIC remapping and hardware IRQ handling
+- Kernel GDT with kernel and user segments
+- Task State Segment (TSS)
+- Interrupt Descriptor Table (IDT)
+- 8259 PIC remapping and IRQ handling
+- CPU exception handling
+- Ring 0 to Ring 3 transition
 
 ### Memory Management
-- BIOS E820 memory map detection
+
+- BIOS E820 memory-map detection
 - Bitmap-based physical memory manager
-- Next-fit physical frame allocation
-- Two-level x86 paging
-- Recursive page directory mapping
-- Dynamic kernel heap (`kmalloc` / `kfree`)
-- Heap growth, block splitting and coalescing
+- 4 KiB physical-frame allocation
+- Next-fit physical-frame allocation
+- 32-bit two-level paging
+- Recursive page-directory mapping
+- Per-task page directories for user tasks
+- Kernel heap with `kmalloc()` / `kfree()`
+- Heap block splitting and coalescing
 
 ### Multitasking
-- Preemptive scheduler
-- Kernel threads
+
+- Preemptive scheduling driven by the PIT
 - Task control blocks
-- Task states and lifecycle management
+- `READY`, `RUNNING`, `WAITING`, and `DEAD` task states
 - Task sleeping and waking
 - Context switching
-- Task termination and cleanup
+- Kernel tasks
+- User-task creation path
 
 ### Drivers
-- VGA text-mode driver with back buffering
-- PS/2 keyboard driver with circular input buffer
-- Programmable Interval Timer (100 Hz)
+
+- VGA text-mode driver
+- PS/2 keyboard driver
+- Programmable Interval Timer (PIT)
+- 8259 PIC support
 
 ### Kernel Utilities
+
 - Interactive kernel shell
-- Custom freestanding C library
+- Freestanding C library routines used by the kernel
 - Kernel test suite
+- CPU information command
+- Kernel memory-management inspection commands
+- Exception/page-fault crash commands
 
-### Userspace
-- Kernel-managed GDT
-- Task State Segment (TSS)
-- Ring 0 to Ring 3 Transition
-- System call interface
-- Per-process address spaces
+### System Calls
 
-## Roadmap
+The current syscall interface is available through `int 0x80` from Ring 3.
 
-### Userspace
-- [ ] ELF executable loader
+Implemented syscall numbers are:
 
-### Storage
-- [ ] ATA driver
-- [ ] Virtual File System
-- [ ] FAT32
+| Number | Name | Purpose |
+|---:|---|---|
+| `0` | `SYS_TEST` | Returns `42` |
+| `1` | `SYS_WRITE` | Writes a validated user buffer to the kernel console |
+| `2` | `SYS_EXIT` | Terminates the current task |
+| `3` | `SYS_YIELD` | Yields the CPU |
+| `4` | `SYS_SLEEP` | Sleeps for a number of milliseconds |
+| `5` | `SYS_GETPID` | Returns the current task PID |
 
-### Longer Term
-- [ ] User-space shell
-- [ ] More System Calls
-- [ ] UEFI boot support
-- [ ] Graphics / GUI
+## Current Userspace Test
 
-## Screenshots / GIFs
+The repository contains `src/apps/user_test.asm`, an assembly userspace regression program that is embedded into the kernel image and copied into a user page by the current test launcher.
 
-### Boot
-![Bare Minimum OS boot](docs/images/boot.png)
+The current test exercises:
 
-### Kernel Shell
-![Bare Minimum OS shell](docs/images/shell.png)
+- `SYS_TEST`
+- `SYS_GETPID`
+- `SYS_WRITE` with a valid pointer
+- `SYS_WRITE` with `0xDEADBEEF` as an invalid pointer
+- `SYS_YIELD`
+- `SYS_SLEEP`
+- `SYS_EXIT`
 
-### Kernel Test Suite
-![Kernel test suite](docs/images/tests.png)
+The test is copied into a user page at virtual address `0x400000` and its stack is mapped at `0x800000` by the current test launcher. The program is not loaded by an ELF loader yet.
 
-## Building & Running
+## Build and Run
 
 ### Requirements
+
 - `i686-elf-gcc` cross-compiler and binutils
 - NASM
-- QEMU (or another x86 emulator)
+- QEMU x86 system emulator
 
-See [Toolchain Setup](docs/toolchain_setup.md) for instructions on
-building the cross-compiler.
+See [Toolchain Setup](docs/toolchain_setup.md) for the cross-compiler setup used by this project.
 
-This project uses a standard Makefile for building and running the OS.
+From the repository root:
 
 ```bash
-make all        # Build the kernel and create boot.img
-make run        # Run the OS in QEMU
-make clean      # Delete build files
+make all        # Build the boot image
+make check      # Compile all source files
+make run        # Build and run in QEMU
+make debug      # Build and run QEMU with interrupt logging
+make print      # Print discovered sources and objects
+make clean      # Remove build files
+make rebuild    # Clean and rebuild everything
+make help       # Show all Makefile targets
 ```
 
-## 📂 Folder Structure
+## Project Structure
+
+Generated build output and the local cross-toolchain are kept outside the maintained source/documentation areas.
 
 ```text
 osdev/
-|----- build/       # Compiled binaries and final boot.img
-|----- cross/       # i686-elf-gcc toolchain location
-|----- docs/        # Detailed project documentation and images
-|----- src/
-|       |----- bootloader.asm  # Custom BIOS bootloader
-|       |----- kernel_entry.asm
-|       |----- kernel.c        # Kernel entry point
-|       |----- apps/           # Kernel shell and test suite
-|       |----- interrupts/     # IDT, ISR and PIC
-|       |----- drivers/        # Keyboard, VGA and PIT drivers
-|       |----- libc/           # Custom freestanding C library
-|       |----- mm/             # PMM, paging and kernel heap
-|       |----- task/           # Multitasking and scheduling
-|       |----- cpu/            # GDT, TSS, etc.
-|       |----- syscall/        # Syscall files
-|
-|----- linker.ld    # Linker script
-|----- Makefile     # Build commands
-|----- README.md    # This file
-|----- LICENSE
+├── bugs/
+│   ├── bugs_summary.md
+│   ├── bugs_001-025.md
+│   ├── bugs_026-050.md
+│   └── todo.md
+│
+├── docs/
+│   ├── architecture.md
+│   ├── memory.md
+│   ├── multitasking.md
+│   ├── syscall.md
+│   ├── diagrams.md
+│   ├── toolchain_setup.md
+│   └── images/
+│
+├── include/
+│   ├── cpu/
+│   ├── drivers/
+│   ├── interrupts/
+│   ├── libc/
+│   ├── mm/
+│   ├── syscall/
+│   └── task/
+│
+├── src/
+│   ├── apps/
+│   ├── cpu/
+│   ├── drivers/
+│   ├── interrupts/
+│   ├── libc/
+│   ├── mm/
+│   ├── syscall/
+│   ├── task/
+│   ├── bootloader.asm
+│   ├── kernel_entry.asm
+│   └── kernel.c
+│
+├── .gitattributes
+├── .gitignore
+├── LICENSE
+├── linker.ld
+├── Makefile
+└── README.md
 ```
 
-## References
-- [OSDev Wiki](https://wiki.osdev.org/)
+`build/` contains generated object files, binaries, and the boot image. `cross/` contains the locally installed `i686-elf` cross-toolchain.
+
+## Documentation
+
+- [Architecture](docs/architecture.md) — boot flow, CPU/interrupt setup, hardware I/O, and kernel subsystem layout
+- [Memory Management](docs/memory.md) — E820, PMM, paging, recursive mapping, and heap
+- [Multitasking](docs/multitasking.md) — task structure, scheduler, task states, context switching, and Ring 3 task setup
+- [System Calls](docs/syscall.md) — syscall ABI, syscall table, user-pointer validation, and userspace test program
+- [Toolchain Setup](docs/toolchain_setup.md) — building the `i686-elf` toolchain used by the project
+- [Diagrams](docs/diagrams.md) — Mermaid diagrams for the boot, initialization, memory, scheduler, and syscall paths
+- [Bug Tracker](bugs/bugs_summary.md) — current bug index and detailed bug reports
+- [Development Plan](bugs/todo.md) — planned development milestones
+
+## Screenshots
+
+### Boot
+
+![Bare Minimum OS boot](docs/images/boot.png)
+
+### Kernel Shell
+
+![Bare Minimum OS shell](docs/images/shell.png)
+
+### Kernel Test Suite
+
+![Kernel test suite](docs/images/tests.png)
+
+## License
 
 This project is open-source and licensed under the terms of the `LICENSE` file.
