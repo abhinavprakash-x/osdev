@@ -66,7 +66,7 @@ flowchart TD
     PM --> JMP[Jump to 0x08:0x8000]
     JMP --> ENTRY[kernel_entry.asm]
     ENTRY --> BSS[Zero .bss]
-    BSS --> KMAIN[kmain()]
+    BSS --> KMAIN["kmain()"]
 ```
 
 The bootloader:

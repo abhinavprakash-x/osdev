@@ -295,7 +295,7 @@ next
 
 ```mermaid
 flowchart TD
-    A[kmalloc(size)] --> B[Align size to 8 bytes]
+    A["kmalloc(size)"] --> B[Align size to 8 bytes]
     B --> C{Existing free block fits?}
     C -->|Yes| D[Optional split]
     D --> E[Mark used and return payload]

@@ -124,7 +124,7 @@ flowchart TD
     T2 --> C{time_slice >= 5?}
     C -->|No| EOI[Send PIC EOI]
     C -->|Yes| RESET[time_slice = 0]
-    RESET --> S[schedule()]
+    RESET --> S["schedule()"]
     S --> EOI
 ```
 

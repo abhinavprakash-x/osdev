@@ -55,36 +55,12 @@ The project currently boots through a custom BIOS bootloader, enters 32-bit prot
 - Kernel memory-management inspection commands
 - Exception/page-fault crash commands
 
-### System Calls
+### System Calls and Userspace
 
-The current syscall interface is available through `int 0x80` from Ring 3.
-
-Implemented syscall numbers are:
-
-| Number | Name | Purpose |
-|---:|---|---|
-| `0` | `SYS_TEST` | Returns `42` |
-| `1` | `SYS_WRITE` | Writes a validated user buffer to the kernel console |
-| `2` | `SYS_EXIT` | Terminates the current task |
-| `3` | `SYS_YIELD` | Yields the CPU |
-| `4` | `SYS_SLEEP` | Sleeps for a number of milliseconds |
-| `5` | `SYS_GETPID` | Returns the current task PID |
-
-## Current Userspace Test
-
-The repository contains `src/apps/user_test.asm`, an assembly userspace regression program that is embedded into the kernel image and copied into a user page by the current test launcher.
-
-The current test exercises:
-
-- `SYS_TEST`
-- `SYS_GETPID`
-- `SYS_WRITE` with a valid pointer
-- `SYS_WRITE` with `0xDEADBEEF` as an invalid pointer
-- `SYS_YIELD`
-- `SYS_SLEEP`
-- `SYS_EXIT`
-
-The test is copied into a user page at virtual address `0x400000` and its stack is mapped at `0x800000` by the current test launcher. The program is not loaded by an ELF loader yet.
+- Ring 3 user tasks
+- System call ABI
+- User-pointer validation
+- Userspace test program
 
 ## Build and Run
 
@@ -119,14 +95,13 @@ osdev/
 │   ├── bugs_summary.md
 │   ├── bugs_001-025.md
 │   ├── bugs_026-050.md
-│   └── todo.md
+│   └── roadmap.md
 │
 ├── docs/
 │   ├── architecture.md
 │   ├── memory.md
 │   ├── multitasking.md
 │   ├── syscall.md
-│   ├── diagrams.md
 │   ├── toolchain_setup.md
 │   └── images/
 │
@@ -169,9 +144,8 @@ osdev/
 - [Multitasking](docs/multitasking.md) — task structure, scheduler, task states, context switching, and Ring 3 task setup
 - [System Calls](docs/syscall.md) — syscall ABI, syscall table, user-pointer validation, and userspace test program
 - [Toolchain Setup](docs/toolchain_setup.md) — building the `i686-elf` toolchain used by the project
-- [Diagrams](docs/diagrams.md) — Mermaid diagrams for the boot, initialization, memory, scheduler, and syscall paths
 - [Bug Tracker](bugs/bugs_summary.md) — current bug index and detailed bug reports
-- [Development Plan](bugs/todo.md) — planned development milestones
+- [Development Plan](bugs/roadmap.md) — planned development milestones
 
 ## Screenshots
 
