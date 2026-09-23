@@ -16,7 +16,9 @@
 #define E820_MEM_MAP_ADDR  0x5000
 #define E820_USABLE        1
 
-static uint32_t mem_map[32768];
+static uint32_t mem_map[PMM_BITMAP_SIZE];
+static uint32_t usable_mem_map[PMM_BITMAP_SIZE];
+
 static int used_blocks = 0;
 static int last_searched_idx = 0;
 static int total_blocks = 0;
@@ -35,11 +37,27 @@ static void clear_bit(int bit)
     mem_map[idx] &= ~(1u << bit_offset);
 }
 
+// 1 = allocated, 0 = free
 static int test_bit(int bit)
 {
     int idx = bit / 32;
     int bit_offset = bit % 32;
     return (mem_map[idx] & (1u << bit_offset)) != 0;
+}
+
+static void set_bit_usable(int bit)
+{
+    int idx = bit / 32;
+    int bit_offset = bit % 32;
+    usable_mem_map[idx] = usable_mem_map[idx] | (1u << bit_offset);
+}
+
+// 1 = usable, 0 = reserved frame (not usable)
+static int test_bit_usable(int bit)
+{
+    int idx = bit / 32;
+    int bit_offset = bit % 32;
+    return (usable_mem_map[idx] & (1u << bit_offset)) != 0;
 }
 
 void pmm_init(void)
@@ -51,6 +69,7 @@ void pmm_init(void)
 
     // Assume All Memory is in use
     memset(mem_map, 0xFF, sizeof(mem_map));
+    memset(usable_mem_map, 0x00, sizeof(usable_mem_map));
 
     struct mem_map_entry* mmap = (struct mem_map_entry*)(E820_MEM_MAP_ADDR + 4);
 
@@ -79,7 +98,11 @@ void pmm_init(void)
 
         total_blocks += num_frames;
         // Mark these specific frames as available
-        for(uint32_t j = 0; j < num_frames; ++j) clear_bit(start_frame + j);
+        for(uint32_t j = 0; j < num_frames; ++j)
+        {
+            clear_bit(start_frame + j);
+            set_bit_usable(start_frame + j);
+        }
     }
 
     // Protect the first 1MB of memory (0x0 to 0xFFFFF).
@@ -104,7 +127,7 @@ void* pmm_alloc_block(void)
         for(int j = 0; j < 32; ++j)
         {
             int bit = (idx * 32) + j;
-            if(test_bit(bit) == 0)
+            if(!test_bit(bit) && test_bit_usable(bit))
             {
                 set_bit(bit);
                 last_searched_idx = idx;
@@ -130,6 +153,7 @@ void pmm_free_block(void* physical_addr)
     if (bit >= PMM_MAX_BLOCKS) return;
     if (bit < 256) return; // Reserved first 1MB of memory
 
+    if (!test_bit_usable(bit)) return; // Only free usable blocks
     if (!test_bit(bit)) return;
 
     clear_bit(bit);
@@ -144,4 +168,17 @@ int get_used_memory(void)
 int get_total_memory(void)
 {
     return total_blocks;
+}
+
+bool pmm_is_usable_block(void *physical_addr)
+{
+    if (physical_addr == 0) return false;
+
+    uint32_t addr = (uint32_t)physical_addr;
+    if ((addr % PMM_BLOCK_SIZE) != 0) return false;
+
+    uint32_t bit = addr / PMM_BLOCK_SIZE;
+    if (bit >= PMM_MAX_BLOCKS) return false;
+
+    return test_bit_usable(bit);
 }

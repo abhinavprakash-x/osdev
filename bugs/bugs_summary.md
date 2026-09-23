@@ -16,14 +16,14 @@ Detailed descriptions live in the range files (`bugs_001-025.md`, `bugs_026-050.
 
 | Bug ID | State | Severity | Component |
 |---|---|---|---|
-| BUG-001 | FIXED | Critical | Boot / Linker |
+| BUG-001 | VERIFIED | Critical | Boot / Linker |
 | BUG-002 | OPEN | Critical | Tasks / Address Space |
 | BUG-003 | OPEN | Critical | User Task Creation |
 | BUG-004 | OPEN | Critical | User Task Creation |
 | BUG-005 | OPEN | Critical | Scheduler |
-| BUG-006 | FIXED | Critical | Scheduler / Tasks |
+| BUG-006 | VERIFIED | Critical | Scheduler / Tasks |
 | BUG-007 | FIXED | Critical | PMM / E820 |
-| BUG-008 | OPEN | Critical | PMM |
+| BUG-008 | VERIFIED | Critical | PMM |
 | BUG-009 | OPEN | High | Bootloader / Build |
 | BUG-010 | OPEN | Critical | User Task Creation |
 | BUG-011 | OPEN | High | Keyboard Driver |
@@ -48,11 +48,11 @@ Detailed descriptions live in the range files (`bugs_001-025.md`, `bugs_026-050.
 | BUG-030 | OPEN | Significant | Heap |
 | BUG-031 | OPEN | Significant | Heap / Paging |
 | BUG-032 | OPEN | Significant | Keyboard Driver |
-| BUG-033 | FIXED | Significant | Shell / Calculator |
-| BUG-034 | FIXED | Significant | Shell / Timer |
-| BUG-035 | FIXED | Significant | PMM |
+| BUG-033 | VERIFIED | Significant | Shell / Calculator |
+| BUG-034 | VERIFIED | Significant | Shell / Timer |
+| BUG-035 | VERIFIED | Significant | PMM |
 | BUG-036 | OPEN | Significant | Bootloader |
-| BUG-037 | FIXED | Build | Make |
+| BUG-037 | VERIFIED | Build | Make |
 | BUG-038 | OPEN | Build / Test | Scheduler Tests |
 | BUG-039 | OPEN | Build / Test | Paging Tests |
 | BUG-040 | OPEN | Build / Test | User Test / Assembly |

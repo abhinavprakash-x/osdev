@@ -426,7 +426,42 @@ static void test_pmm_free_validation(void)
     assert_true(test_phys != 0x1000, "pmm free validation(reserved frame not allocatable)");
     if (test_phys != 0) pmm_free_block((void*)test_phys);
 
-    // Test 5: Out-of-range address
+    // Test 5: Reserved physical frame (above 1MB)
+    uint32_t reserved_phys = 0;
+    for (uint32_t frame = 256; frame < 1048576; ++frame)
+    {
+        uint32_t phys_addr = frame * 4096;
+
+        if (!pmm_is_usable_block((void*)phys_addr))
+        {
+            reserved_phys = phys_addr;
+            break;
+        }
+    }
+
+    if (reserved_phys != 0)
+    {
+        int used_before_reserved_above_1mb = get_used_memory();
+        pmm_free_block((void*)reserved_phys);
+        assert_equal_int(used_before_reserved_above_1mb, get_used_memory(), "pmm free validation(reserved frame above 1MB rejected)");
+        assert_true(!pmm_is_usable_block((void*)reserved_phys), "pmm free validation(reserved frame remains unusable)");
+    }
+    else
+    {
+        printf("[INFO] No reserved E820 frame above 1MB found\n");
+    }
+
+    // Test 6: Allocated frames must come from usable memory
+    uint32_t usable_phys = (uint32_t)pmm_alloc_block();
+    assert_true(usable_phys != 0, "pmm free validation(allocated frame exists)");
+
+    if (usable_phys != 0)
+    {
+        assert_true(pmm_is_usable_block((void*)usable_phys), "pmm free validation(allocated frame is usable)");
+        pmm_free_block((void*)usable_phys);
+    }
+
+    // Test 7: Out-of-range address
     int used_before_invalid_address = get_used_memory();
     pmm_free_block((void*)0xFFFFFFFF);
     assert_equal_int(get_used_memory(), used_before_invalid_address, "pmm free validation(out of range rejected)");
@@ -655,6 +690,7 @@ void test_scheduler(void)
 
     task_add(task_a);
     task_add(task_b);
+    task_add(NULL); // Should be ignored by the scheduler
 
     task_sleep(250);
 
