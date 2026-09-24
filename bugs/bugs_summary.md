@@ -27,7 +27,7 @@ Detailed descriptions live in the range files (`bugs_001-025.md`, `bugs_026-050.
 | BUG-009 | OPEN | High | Bootloader / Build |
 | BUG-010 | OPEN | Critical | User Task Creation |
 | BUG-011 | OPEN | High | Keyboard Driver |
-| BUG-012 | OPEN | High | PMM |
+| BUG-012 | VERIFIED | High | PMM |
 | BUG-013 | OPEN | High | Shell |
 | BUG-014 | OPEN | Critical | Scheduler |
 | BUG-015 | FIXED | Critical | Scheduler |

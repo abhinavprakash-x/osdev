@@ -52,6 +52,13 @@ static void set_bit_usable(int bit)
     usable_mem_map[idx] = usable_mem_map[idx] | (1u << bit_offset);
 }
 
+static void clear_bit_usable(int bit)
+{
+    int idx = bit / 32;
+    int bit_offset = bit % 32;
+    usable_mem_map[idx] &= ~(1u << bit_offset);
+}
+
 // 1 = usable, 0 = reserved frame (not usable)
 static int test_bit_usable(int bit)
 {
@@ -67,7 +74,8 @@ void pmm_init(void)
     total_blocks = 0;
     used_blocks = 0;
 
-    // Assume All Memory is in use
+    // Start with every physical frame unavailable.
+    // E820 usable regions are explicitly added to the PMM pool.
     memset(mem_map, 0xFF, sizeof(mem_map));
     memset(usable_mem_map, 0x00, sizeof(usable_mem_map));
 
@@ -108,9 +116,14 @@ void pmm_init(void)
     // Protect the first 1MB of memory (0x0 to 0xFFFFF).
     // This is strictly reserved for the BIOS, VGA Buffer, and Kernel code.
     // 1MB / 4KB = 256 blocks.
-    for(uint32_t i = 0; i < 256; ++i) {
+    for(uint32_t i = 0; i < 256; ++i)
+    {
+        if(test_bit_usable(i))
+        {
+            total_blocks--;
+            clear_bit_usable(i);
+        }
         set_bit(i);
-        used_blocks++;
     }
 }
 
@@ -168,6 +181,11 @@ int get_used_memory(void)
 int get_total_memory(void)
 {
     return total_blocks;
+}
+
+int get_free_memory(void)
+{
+    return total_blocks - used_blocks;
 }
 
 bool pmm_is_usable_block(void *physical_addr)

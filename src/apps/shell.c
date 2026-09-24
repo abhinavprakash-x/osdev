@@ -134,14 +134,10 @@ void execute_command(void)
     else if (strcmp(buffer, "meminfo") == 0)
     {
         // Convert 4096-byte blocks into Kilobytes (1 Block = 4 KB)
-        int used_kb = get_used_memory() * 4;
-        int total_kb = get_total_memory() * 4;
-        int free_kb = total_kb - used_kb;
-        
         printf("--- Physical Memory ---\n");
-        printf("Total : %d KB\n", total_kb);
-        printf("Used  : %d KB\n", used_kb);
-        printf("Free  : %d KB\n", free_kb);
+        printf("Total : %d KB\n", get_total_memory() * 4);
+        printf("Used  : %d KB\n", get_used_memory() * 4);
+        printf("Free  : %d KB\n", get_free_memory() * 4);
     }
     else if (strncmp(buffer, "alloc ", 6) == 0)
     {

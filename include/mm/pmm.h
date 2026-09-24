@@ -17,5 +17,6 @@ void pmm_free_block(void* physical_addr);
 
 int get_used_memory(void);
 int get_total_memory(void);
+int get_free_memory(void);
 
 bool pmm_is_usable_block(void *physical_addr);
