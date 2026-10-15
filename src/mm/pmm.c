@@ -80,6 +80,7 @@ void pmm_init(void)
     memset(usable_mem_map, 0x00, sizeof(usable_mem_map));
 
     struct mem_map_entry* mmap = (struct mem_map_entry*)(E820_MEM_MAP_ADDR + 4);
+    const uint64_t limit_4gb = 0x100000000ULL;
 
     for(uint32_t i = 0; i < entry_count; ++i)
     {
@@ -88,13 +89,12 @@ void pmm_init(void)
         uint64_t base = mmap[i].base_addr;
         uint64_t length = mmap[i].region_length;
 
-        if(base >= 0x100000000ULL) continue; // Ignore memory above 4GB
+        if(length == 0 || base >= limit_4gb) continue; // Ignore empty or >4GB memory
 
-        uint64_t end;
-        if(base + length > 0x100000000ULL) end = 0x100000000ULL;
-        else end = base + length;
+        // Overflow-safe clipping to 4GB
+        uint64_t end = (length > limit_4gb - base) ? limit_4gb : (base + length);
 
-        // Align the base address to the next 4KB boundary
+        // Align the base address up and end address down to 4KB boundaries
         uint64_t aligned_start = (base + PMM_BLOCK_SIZE - 1) & ~(uint64_t)(PMM_BLOCK_SIZE - 1);
         uint64_t aligned_end = end & ~(uint64_t)(PMM_BLOCK_SIZE - 1);
 
@@ -104,12 +104,15 @@ void pmm_init(void)
         uint32_t start_frame = (uint32_t)(aligned_start / PMM_BLOCK_SIZE);
         uint32_t num_frames = (uint32_t)((aligned_end - aligned_start) / PMM_BLOCK_SIZE);
 
-        total_blocks += num_frames;
-        // Mark these specific frames as available
         for(uint32_t j = 0; j < num_frames; ++j)
         {
-            clear_bit(start_frame + j);
-            set_bit_usable(start_frame + j);
+            uint32_t frame = start_frame + j;
+            if (!test_bit_usable((int)frame))
+            {
+                clear_bit((int)frame);
+                set_bit_usable((int)frame);
+                total_blocks++;
+            }
         }
     }
 
@@ -118,12 +121,12 @@ void pmm_init(void)
     // 1MB / 4KB = 256 blocks.
     for(uint32_t i = 0; i < 256; ++i)
     {
-        if(test_bit_usable(i))
+        if(test_bit_usable((int)i))
         {
             total_blocks--;
-            clear_bit_usable(i);
+            clear_bit_usable((int)i);
         }
-        set_bit(i);
+        set_bit((int)i);
     }
 }
 
@@ -144,7 +147,7 @@ void* pmm_alloc_block(void)
             {
                 set_bit(bit);
                 last_searched_idx = idx;
-                uint32_t physical_addr = bit * 4096;
+                uint32_t physical_addr = (uint32_t)bit * 4096u;
                 used_blocks++;
                 return (void*)physical_addr;
             }
@@ -166,10 +169,10 @@ void pmm_free_block(void* physical_addr)
     if (bit >= PMM_MAX_BLOCKS) return;
     if (bit < 256) return; // Reserved first 1MB of memory
 
-    if (!test_bit_usable(bit)) return; // Only free usable blocks
-    if (!test_bit(bit)) return;
+    if (!test_bit_usable((int)bit)) return; // Only free usable blocks
+    if (!test_bit((int)bit)) return;
 
-    clear_bit(bit);
+    clear_bit((int)bit);
     used_blocks--;
 }
 
@@ -198,5 +201,41 @@ bool pmm_is_usable_block(void *physical_addr)
     uint32_t bit = addr / PMM_BLOCK_SIZE;
     if (bit >= PMM_MAX_BLOCKS) return false;
 
-    return test_bit_usable(bit);
+    return test_bit_usable((int)bit);
+}
+
+uint32_t pmm_save_allocated_blocks(uint32_t* buffer, uint32_t max_count)
+{
+    uint32_t count = 0;
+    for (int idx = 0; idx < PMM_BITMAP_SIZE; ++idx)
+    {
+        uint32_t allocated_usable = mem_map[idx] & usable_mem_map[idx];
+        if (allocated_usable == 0) continue;
+
+        for (int bit_offset = 0; bit_offset < 32; ++bit_offset)
+        {
+            if (allocated_usable & (1u << bit_offset))
+            {
+                if (count < max_count)
+                {
+                    buffer[count] = (uint32_t)((idx * 32 + bit_offset) * PMM_BLOCK_SIZE);
+                }
+                count++;
+            }
+        }
+    }
+    return count;
+}
+
+void pmm_restore_allocated_blocks(const uint32_t* buffer, uint32_t count)
+{
+    for (uint32_t i = 0; i < count; ++i)
+    {
+        uint32_t bit = buffer[i] / PMM_BLOCK_SIZE;
+        if (bit >= 256 && bit < PMM_MAX_BLOCKS && test_bit_usable((int)bit) && !test_bit((int)bit))
+        {
+            set_bit((int)bit);
+            used_blocks++;
+        }
+    }
 }

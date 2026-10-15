@@ -20,3 +20,6 @@ int get_total_memory(void);
 int get_free_memory(void);
 
 bool pmm_is_usable_block(void *physical_addr);
+
+uint32_t pmm_save_allocated_blocks(uint32_t* buffer, uint32_t max_count);
+void pmm_restore_allocated_blocks(const uint32_t* buffer, uint32_t count);

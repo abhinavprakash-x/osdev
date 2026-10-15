@@ -22,7 +22,7 @@ Detailed descriptions live in the range files (`bugs_001-025.md`, `bugs_026-050.
 | BUG-004 | OPEN | Critical | User Task Creation |
 | BUG-005 | OPEN | Critical | Scheduler |
 | BUG-006 | VERIFIED | Critical | Scheduler / Tasks |
-| BUG-007 | FIXED | Critical | PMM / E820 |
+| BUG-007 | VERIFIED | Critical | PMM / E820 |
 | BUG-008 | VERIFIED | Critical | PMM |
 | BUG-009 | OPEN | High | Bootloader / Build |
 | BUG-010 | OPEN | Critical | User Task Creation |
@@ -30,7 +30,7 @@ Detailed descriptions live in the range files (`bugs_001-025.md`, `bugs_026-050.
 | BUG-012 | VERIFIED | High | PMM |
 | BUG-013 | OPEN | High | Shell |
 | BUG-014 | OPEN | Critical | Scheduler |
-| BUG-015 | FIXED | Critical | Scheduler |
+| BUG-015 | VERIFIED | Critical | Scheduler |
 | BUG-016 | OPEN | Critical | Paging |
 | BUG-017 | OPEN | Critical | User Task Creation / Paging |
 | BUG-018 | OPEN | Critical | Heap |
@@ -40,7 +40,7 @@ Detailed descriptions live in the range files (`bugs_001-025.md`, `bugs_026-050.
 | BUG-022 | OPEN | Significant | Paging |
 | BUG-023 | OPEN | Significant | Paging / PMM |
 | BUG-024 | OPEN | Significant | Paging / PMM |
-| BUG-025 | FIXED | Significant | PMM / E820 |
+| BUG-025 | VERIFIED | Significant | PMM / E820 |
 | BUG-026 | OPEN | Significant | Bootloader / PMM / E820 |
 | BUG-027 | OPEN | Significant | Bootloader / E820 |
 | BUG-028 | OPEN | Significant | Scheduler / Timer |
@@ -53,9 +53,9 @@ Detailed descriptions live in the range files (`bugs_001-025.md`, `bugs_026-050.
 | BUG-035 | VERIFIED | Significant | PMM |
 | BUG-036 | OPEN | Significant | Bootloader |
 | BUG-037 | VERIFIED | Build | Make |
-| BUG-038 | OPEN | Build / Test | Scheduler Tests |
-| BUG-039 | OPEN | Build / Test | Paging Tests |
-| BUG-040 | OPEN | Build / Test | User Test / Assembly |
+| BUG-038 | VERIFIED | Build / Test | Scheduler Tests |
+| BUG-039 | VERIFIED | Build / Test | Paging Tests |
+| BUG-040 | VERIFIED | Build / Test | User Test / Assembly |
 | BUG-041 | OPEN | Significant | Scheduler / Tasks |
 | BUG-042 | OPEN | Significant | PMM / E820 |
 
