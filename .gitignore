@@ -2,3 +2,4 @@ build/
 cross/
 qemu-int.log
 codebase.txt
+changes.txt
