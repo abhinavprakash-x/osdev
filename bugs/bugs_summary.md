@@ -17,22 +17,22 @@ Detailed descriptions live in the range files (`bugs_001-025.md`, `bugs_026-050.
 | Bug ID | State | Severity | Component |
 |---|---|---|---|
 | BUG-001 | VERIFIED | Critical | Boot / Linker |
-| BUG-002 | OPEN | Critical | Tasks / Address Space |
-| BUG-003 | OPEN | Critical | User Task Creation |
-| BUG-004 | OPEN | Critical | User Task Creation |
+| BUG-002 | VERIFIED | Critical | Tasks / Address Space |
+| BUG-003 | VERIFIED | Critical | User Task Creation |
+| BUG-004 | VERIFIED | Critical | User Task Creation |
 | BUG-005 | OPEN | Critical | Scheduler |
 | BUG-006 | VERIFIED | Critical | Scheduler / Tasks |
 | BUG-007 | VERIFIED | Critical | PMM / E820 |
 | BUG-008 | VERIFIED | Critical | PMM |
 | BUG-009 | OPEN | High | Bootloader / Build |
-| BUG-010 | OPEN | Critical | User Task Creation |
+| BUG-010 | VERIFIED | Critical | User Task Creation |
 | BUG-011 | OPEN | High | Keyboard Driver |
 | BUG-012 | VERIFIED | High | PMM |
 | BUG-013 | OPEN | High | Shell |
 | BUG-014 | OPEN | Critical | Scheduler |
 | BUG-015 | VERIFIED | Critical | Scheduler |
 | BUG-016 | VERIFIED | Critical | Paging |
-| BUG-017 | OPEN | Critical | User Task Creation / Paging |
+| BUG-017 | VERIFIED | Critical | User Task Creation / Paging |
 | BUG-018 | VERIFIED | Critical | Heap |
 | BUG-019 | VERIFIED | Critical | Shell / Heap |
 | BUG-020 | VERIFIED | Significant | Paging / PMM |
