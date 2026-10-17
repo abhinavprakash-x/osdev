@@ -142,10 +142,30 @@ void execute_command(void)
     else if (strncmp(buffer, "alloc ", 6) == 0)
     {
         char* buf = buffer + 6;
-        int* ptr = (int*)kmalloc(atoi(buf));
-        char buf2[32];
-        itox((int)ptr, buf2);
-        printf("%d Bytes Allocated at Address 0x%s \n", atoi(buf), buf2);
+        while (*buf == ' ') buf++;
+
+        if (*buf == '\0') printf("Error: Invalid allocation size.\n");
+        else
+        {
+            int valid = 1;
+            for(int i = 0; buf[i] != '\0'; i++)
+            {
+                if(buf[i] < '0' || buf[i] > '9')
+                {
+                    valid = 0;
+                    break;
+                }
+            }
+            int requested = valid ? atoi(buf) : -1;
+
+            if(!valid || requested <= 0) printf("Error: Invalid allocation size.\n");
+            else
+            {
+                void* ptr = kmalloc((size_t)requested);
+                if(ptr == 0) printf("Error: Memory allocation failed.\n");
+                else printf("%d Bytes allocated at Address: 0x%x\n", requested, (uint32_t)ptr);
+            }
+        }
     }
     else if(strncmp(buffer, "free ", 5) == 0)
     {

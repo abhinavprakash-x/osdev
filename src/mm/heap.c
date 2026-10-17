@@ -2,10 +2,7 @@
 #include "mm/paging.h"
 #include "mm/pmm.h"
 
-#define HEAP_START 0x10000000
-#define HEAP_MAGIC 0xDEADBEEF
-
-#define ALIGN_8(size) (((size) + 7) & ~7)
+#define ALIGN_8(size) (((size) + 7u) & ~7u)
 
 static heap_block_t* head = 0;
 static uint32_t heap_end_vaddr = HEAP_START;
@@ -25,16 +22,17 @@ void heap_init(void)
 
     head = (heap_block_t*)HEAP_START;
     head->magic = HEAP_MAGIC;
-    head->size = 4096 - sizeof(heap_block_t);
+    head->size = PAGE_SIZE - sizeof(heap_block_t);
     head->is_free = 1;
     head->next = 0;
 
-    heap_end_vaddr = HEAP_START + 4096;
+    heap_end_vaddr = HEAP_START + PAGE_SIZE;
 }
 
 void* kmalloc(size_t size)
 {
-    if(size <= 0) return 0;
+    if (size == 0 || size > (HEAP_MAX_SIZE - sizeof(heap_block_t) - PAGE_SIZE))
+        return 0;
     size = ALIGN_8(size);
 
     heap_block_t* ptr = head;
@@ -43,7 +41,7 @@ void* kmalloc(size_t size)
     {
         if(ptr->is_free && ptr->size >= size)
         {
-            if (ptr->size > size + sizeof(heap_block_t) + 8)
+            if (ptr->size >= size + sizeof(heap_block_t) + 8u)
             {
                 // Create a new block immediately after the requested size
                 heap_block_t* new_block = (heap_block_t*)((uint8_t*)ptr + sizeof(heap_block_t) + size);
@@ -64,8 +62,13 @@ void* kmalloc(size_t size)
     }
 
     size_t total_size_needed = size + sizeof(heap_block_t);
-    size_t pages_needed = (total_size_needed + 4095) / 4096;
-    
+    size_t pages_needed = (total_size_needed + (PAGE_SIZE - 1u)) / PAGE_SIZE;
+    uint32_t bytes_needed = (uint32_t)(pages_needed * PAGE_SIZE);
+
+    // BUG-031: Enforce virtual address ceiling for the kernel heap
+    if (bytes_needed > (HEAP_MAX_ADDR - heap_end_vaddr))
+        return 0;
+
     uint32_t block_start_vaddr = heap_end_vaddr;
     size_t pages_allocated = 0;
 
@@ -85,12 +88,13 @@ void* kmalloc(size_t size)
                     pmm_free_block((void*)rollback_phys);
                 }
             }
-            return 0; // Allocation failed
+            heap_end_vaddr = block_start_vaddr;
+            return 0;
         }
         if (!map_page(heap_end_vaddr, physical_new_page, PTE_PRESENT | PTE_RW))
         {
-            // Rollback any pages that were allocated
-            for (size_t j = 0; j < pages_allocated; j++) {
+            for (size_t j = 0; j < pages_allocated; j++)
+            {
                 uint32_t rollback_vaddr = block_start_vaddr + (j * PAGE_SIZE);
                 uint32_t rollback_phys = get_physical_addr(rollback_vaddr) & 0xFFFFF000;
                 unmap_page(rollback_vaddr);
@@ -100,7 +104,8 @@ void* kmalloc(size_t size)
                 }
             }
             pmm_free_block((void*)physical_new_page);
-            return 0; // Allocation failed
+            heap_end_vaddr = block_start_vaddr;
+            return 0;
         }
         heap_end_vaddr += PAGE_SIZE;
         pages_allocated++;
@@ -108,22 +113,27 @@ void* kmalloc(size_t size)
 
     heap_block_t* new_block = (heap_block_t*)block_start_vaddr;
     new_block->magic = HEAP_MAGIC;
-    new_block->size = (pages_needed * 4096) - sizeof(heap_block_t);
+    new_block->size = (pages_needed * PAGE_SIZE) - sizeof(heap_block_t);
     new_block->is_free = 1;
     new_block->next = 0;
 
-    if (last_block != 0) {
-        last_block->next = new_block;
+    if(last_block != 0) last_block->next = new_block;
+
+    // Coalesce in case the previous tail block was also free
+    // before allocating from the newly extended space
+    if (last_block != 0 && last_block->is_free)
+    {
+        last_block->size += new_block->size + sizeof(heap_block_t);
+        last_block->next = new_block->next;
     }
-    
-    // Recursively call kmalloc now that space exists
+
     return kmalloc(size);
 }
 
 static void coalesce_heap(void)
 {
     heap_block_t* ptr = head;
-    
+
     while (ptr != 0 && ptr->next != 0)
     {
         if (ptr->is_free && ptr->next->is_free)
@@ -140,11 +150,28 @@ static void coalesce_heap(void)
 
 void kfree(void* ptr)
 {
-    if(ptr == 0) return;
+    if (ptr == 0) return;
+    uint32_t addr = (uint32_t)ptr;
 
-    heap_block_t* block = (heap_block_t*)((uint8_t*)ptr - sizeof(heap_block_t));
-    if(!(block->magic == HEAP_MAGIC)) return;
+    // BUG-030: Validate pointer range and alignment before touching metadata
+    if(addr < (HEAP_START + sizeof(heap_block_t)) || addr >= heap_end_vaddr) return;
+    if((addr % 8u) != 0) return;
 
-    block->is_free = 1;
-    coalesce_heap();
+    heap_block_t* target = (heap_block_t*)((uint8_t*)ptr - sizeof(heap_block_t));
+
+    // Verify `target` is an actual allocated block in the heap list
+    heap_block_t* curr = head;
+    while (curr != 0)
+    {
+        if (curr == target)
+        {
+            if (curr->magic != HEAP_MAGIC || curr->is_free)
+                return; // Reject corrupted or already-free block
+
+            curr->is_free = 1;
+            coalesce_heap();
+            return;
+        }
+        curr = curr->next;
+    }
 }

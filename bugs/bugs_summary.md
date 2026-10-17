@@ -33,8 +33,8 @@ Detailed descriptions live in the range files (`bugs_001-025.md`, `bugs_026-050.
 | BUG-015 | VERIFIED | Critical | Scheduler |
 | BUG-016 | OPEN | Critical | Paging |
 | BUG-017 | OPEN | Critical | User Task Creation / Paging |
-| BUG-018 | OPEN | Critical | Heap |
-| BUG-019 | OPEN | Critical | Shell / Heap |
+| BUG-018 | VERIFIED | Critical | Heap |
+| BUG-019 | VERIFIED | Critical | Shell / Heap |
 | BUG-020 | OPEN | Significant | Paging / PMM |
 | BUG-021 | OPEN | Significant | Paging |
 | BUG-022 | OPEN | Significant | Paging |
@@ -45,8 +45,8 @@ Detailed descriptions live in the range files (`bugs_001-025.md`, `bugs_026-050.
 | BUG-027 | OPEN | Significant | Bootloader / E820 |
 | BUG-028 | OPEN | Significant | Scheduler / Timer |
 | BUG-029 | OPEN | Significant | Interrupts / User Mode |
-| BUG-030 | OPEN | Significant | Heap |
-| BUG-031 | OPEN | Significant | Heap / Paging |
+| BUG-030 | VERIFIED | Significant | Heap |
+| BUG-031 | VERIFIED | Significant | Heap / Paging |
 | BUG-032 | OPEN | Significant | Keyboard Driver |
 | BUG-033 | VERIFIED | Significant | Shell / Calculator |
 | BUG-034 | VERIFIED | Significant | Shell / Timer |
