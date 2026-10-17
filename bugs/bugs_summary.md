@@ -31,15 +31,15 @@ Detailed descriptions live in the range files (`bugs_001-025.md`, `bugs_026-050.
 | BUG-013 | OPEN | High | Shell |
 | BUG-014 | OPEN | Critical | Scheduler |
 | BUG-015 | VERIFIED | Critical | Scheduler |
-| BUG-016 | OPEN | Critical | Paging |
+| BUG-016 | VERIFIED | Critical | Paging |
 | BUG-017 | OPEN | Critical | User Task Creation / Paging |
 | BUG-018 | VERIFIED | Critical | Heap |
 | BUG-019 | VERIFIED | Critical | Shell / Heap |
-| BUG-020 | OPEN | Significant | Paging / PMM |
-| BUG-021 | OPEN | Significant | Paging |
-| BUG-022 | OPEN | Significant | Paging |
-| BUG-023 | OPEN | Significant | Paging / PMM |
-| BUG-024 | OPEN | Significant | Paging / PMM |
+| BUG-020 | VERIFIED | Significant | Paging / PMM |
+| BUG-021 | VERIFIED | Significant | Paging |
+| BUG-022 | VERIFIED | Significant | Paging |
+| BUG-023 | VERIFIED | Significant | Paging / PMM |
+| BUG-024 | VERIFIED | Significant | Paging / PMM |
 | BUG-025 | VERIFIED | Significant | PMM / E820 |
 | BUG-026 | OPEN | Significant | Bootloader / PMM / E820 |
 | BUG-027 | OPEN | Significant | Bootloader / E820 |
@@ -58,5 +58,8 @@ Detailed descriptions live in the range files (`bugs_001-025.md`, `bugs_026-050.
 | BUG-040 | VERIFIED | Build / Test | User Test / Assembly |
 | BUG-041 | OPEN | Significant | Scheduler / Tasks |
 | BUG-042 | OPEN | Significant | PMM / E820 |
+| BUG-043 | VERIFIED | Critical | Paging |
+| BUG-044 | VERIFIED | Significant | Build / Test |
+| BUG-045 | VERIFIED | Significant | Paging / Scheduler |
 
 ---

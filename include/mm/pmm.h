@@ -10,6 +10,10 @@ struct mem_map_entry{
     uint32_t acpi_attributes;
 } __attribute__((packed));
 
+typedef struct{
+    uint32_t start_frame;
+    uint32_t frame_count;
+} pmm_alloc_range_t;
 
 void pmm_init(void);
 void* pmm_alloc_block(void);
@@ -20,6 +24,7 @@ int get_total_memory(void);
 int get_free_memory(void);
 
 bool pmm_is_usable_block(void *physical_addr);
+bool pmm_is_allocated_block(void *physical_addr);
 
-uint32_t pmm_save_allocated_blocks(uint32_t* buffer, uint32_t max_count);
-void pmm_restore_allocated_blocks(const uint32_t* buffer, uint32_t count);
+uint32_t pmm_save_allocated_ranges(pmm_alloc_range_t* buffer, uint32_t max_ranges);
+void pmm_restore_allocated_ranges(const pmm_alloc_range_t* buffer, uint32_t range_count);

@@ -204,38 +204,101 @@ bool pmm_is_usable_block(void *physical_addr)
     return test_bit_usable((int)bit);
 }
 
-uint32_t pmm_save_allocated_blocks(uint32_t* buffer, uint32_t max_count)
+bool pmm_is_allocated_block(void *physical_addr)
 {
-    uint32_t count = 0;
+    if (physical_addr == 0) return false;
+
+    uint32_t addr = (uint32_t)physical_addr;
+    if ((addr % PMM_BLOCK_SIZE) != 0) return false;
+
+    uint32_t bit = addr / PMM_BLOCK_SIZE;
+    if (bit < 256 || bit >= PMM_MAX_BLOCKS) return false;
+
+    return test_bit_usable((int)bit) && test_bit((int)bit);
+}
+
+uint32_t pmm_save_allocated_ranges(pmm_alloc_range_t* buffer, uint32_t max_ranges)
+{
+    uint32_t range_count = 0;
+    int in_range = 0;
+    uint32_t current_start = 0;
+    uint32_t current_len = 0;
+
     for (int idx = 0; idx < PMM_BITMAP_SIZE; ++idx)
     {
         uint32_t allocated_usable = mem_map[idx] & usable_mem_map[idx];
-        if (allocated_usable == 0) continue;
+
+        if (allocated_usable == 0)
+        {
+            if (in_range)
+            {
+                if (range_count < max_ranges)
+                {
+                    buffer[range_count].start_frame = current_start;
+                    buffer[range_count].frame_count = current_len;
+                }
+                range_count++;
+                in_range = 0;
+            }
+            continue;
+        }
 
         for (int bit_offset = 0; bit_offset < 32; ++bit_offset)
         {
+            uint32_t frame = (uint32_t)(idx * 32 + bit_offset);
             if (allocated_usable & (1u << bit_offset))
             {
-                if (count < max_count)
+                if (!in_range)
                 {
-                    buffer[count] = (uint32_t)((idx * 32 + bit_offset) * PMM_BLOCK_SIZE);
+                    in_range = 1;
+                    current_start = frame;
+                    current_len = 1;
                 }
-                count++;
+                else
+                {
+                    current_len++;
+                }
+            }
+            else if (in_range)
+            {
+                if (range_count < max_ranges)
+                {
+                    buffer[range_count].start_frame = current_start;
+                    buffer[range_count].frame_count = current_len;
+                }
+                range_count++;
+                in_range = 0;
             }
         }
     }
-    return count;
+
+    if (in_range)
+    {
+        if (range_count < max_ranges)
+        {
+            buffer[range_count].start_frame = current_start;
+            buffer[range_count].frame_count = current_len;
+        }
+        range_count++;
+    }
+
+    return range_count;
 }
 
-void pmm_restore_allocated_blocks(const uint32_t* buffer, uint32_t count)
+void pmm_restore_allocated_ranges(const pmm_alloc_range_t* buffer, uint32_t range_count)
 {
-    for (uint32_t i = 0; i < count; ++i)
+    for (uint32_t i = 0; i < range_count; ++i)
     {
-        uint32_t bit = buffer[i] / PMM_BLOCK_SIZE;
-        if (bit >= 256 && bit < PMM_MAX_BLOCKS && test_bit_usable((int)bit) && !test_bit((int)bit))
+        uint32_t start = buffer[i].start_frame;
+        uint32_t end = start + buffer[i].frame_count;
+
+        for (uint32_t bit = start; bit < end && bit < PMM_MAX_BLOCKS; ++bit)
         {
-            set_bit((int)bit);
-            used_blocks++;
+            if (bit >= 256 && test_bit_usable((int)bit) && !test_bit((int)bit))
+            {
+                set_bit((int)bit);
+                used_blocks++;
+            }
         }
     }
 }

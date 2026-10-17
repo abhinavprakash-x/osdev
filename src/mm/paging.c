@@ -1,7 +1,6 @@
 /*
  * Virtual Memory Manager (Paging)
  * Translates virtual addresses to physical RAM addresses.
- * Currently configured to identity-map the first 4MB of RAM.
  */
 
 #include "mm/paging.h"
@@ -11,9 +10,29 @@
 static uint32_t* kernel_page_directory = 0;
 static uint32_t* current_page_directory = 0;
 
+void* paging_temp_map(uint32_t physical_addr)
+{
+    uint32_t page_dir_idx = (PAGING_TEMP_VADDR >> 22) & 0x3FFu;
+    uint32_t page_table_idx = (PAGING_TEMP_VADDR >> 12) & 0x3FFu;
+    uint32_t* pt = (uint32_t*)(0xFFC00000u + (page_dir_idx * PAGE_SIZE));
+
+    pt[page_table_idx] = (physical_addr & 0xFFFFF000u) | PTE_PRESENT | PTE_RW;
+    __asm__ volatile ("invlpg (%0)" : : "b"(PAGING_TEMP_VADDR) : "memory");
+    return (void*)PAGING_TEMP_VADDR;
+}
+
+void paging_temp_unmap(void)
+{
+    uint32_t page_dir_idx = (PAGING_TEMP_VADDR >> 22) & 0x3FFu;
+    uint32_t page_table_idx = (PAGING_TEMP_VADDR >> 12) & 0x3FFu;
+    uint32_t* pt = (uint32_t*)(0xFFC00000u + (page_dir_idx * PAGE_SIZE));
+
+    pt[page_table_idx] = 0;
+    __asm__ volatile ("invlpg (%0)" : : "b"(PAGING_TEMP_VADDR) : "memory");
+}
+
 void paging_init(void)
 {
-    // Allocate a 4KB block for the Page Directory and zero all entries
     kernel_page_directory = pmm_alloc_block();
     if (kernel_page_directory == 0)
     {
@@ -22,24 +41,21 @@ void paging_init(void)
 
     memset(kernel_page_directory, 0, PT_ENTRIES * sizeof(uint32_t));
 
-    // Allocate a 4KB block for our first Page Table
     uint32_t* page_table = pmm_alloc_block();
     if (page_table == 0)
     {
         while(1) __asm__ volatile ("cli; hlt");
     }
 
-    // Identity map the first 4MB (0x0 to 0x3FFFFF)
-    for(int i = 0; i < PT_ENTRIES; ++i)
+    // Identity map the first 4MB except PAGING_TEMP_VADDR (PTE 1023 at 0x003FF000)
+    for (uint32_t i = 0; i < PT_ENTRIES - 1; ++i)
     {
         uint32_t physical_addr = i * PAGE_SIZE;
         page_table[i] = physical_addr | PTE_PRESENT | PTE_RW;
     }
-    
-    // Insert the newly created Page Table into the first slot of the Page Directory
-    kernel_page_directory[0] = (uint32_t)page_table | PTE_PRESENT | PTE_RW;
+    page_table[PT_ENTRIES - 1] = 0;
 
-    // Recursive Paging
+    kernel_page_directory[0] = (uint32_t)page_table | PTE_PRESENT | PTE_RW;
     kernel_page_directory[1023] = (uint32_t)kernel_page_directory | PTE_PRESENT | PTE_RW;
     current_page_directory = kernel_page_directory;
 
@@ -49,32 +65,57 @@ void paging_init(void)
 
 bool map_page(uint32_t virtual_addr, uint32_t physical_addr, uint32_t flags)
 {
-    uint32_t page_dir_idx = (virtual_addr >> 22) & 0x3FF;
-    uint32_t page_table_idx = (virtual_addr >> 12) & 0x3FF;
+    // BUG-022: Enforce 4KB page alignment on both virtual and physical addresses
+    if ((virtual_addr & 0xFFFu) != 0 || (physical_addr & 0xFFFu) != 0)
+        return false;
 
-    uint32_t entry = physical_addr | flags;
-    uint32_t* v_page_dir = (uint32_t*)0xFFFFF000;
+    // Reject mapping over the recursive region or reserved temporary slot
+    if (virtual_addr >= 0xFFC00000u || virtual_addr == PAGING_TEMP_VADDR)
+        return false;
 
-    if((v_page_dir[page_dir_idx] & PTE_PRESENT) == 0)
+    // BUG-023: Validate that the physical frame is usable and currently allocated in PMM
+    if (!pmm_is_allocated_block((void*)physical_addr))
+        return false;
+
+    uint32_t page_dir_idx = (virtual_addr >> 22) & 0x3FFu;
+    uint32_t page_table_idx = (virtual_addr >> 12) & 0x3FFu;
+
+    uint32_t allowed_flags = flags & (PTE_PRESENT | PTE_RW | PTE_USER | PTE_SHARED);
+    uint32_t entry = physical_addr | allowed_flags;
+    uint32_t* v_page_dir = (uint32_t*)0xFFFFF000u;
+
+    if ((v_page_dir[page_dir_idx] & PTE_PRESENT) == 0)
     {
         uint32_t physical_new_table = (uint32_t)pmm_alloc_block();
-        if(physical_new_table == 0)
+        if (physical_new_table == 0)
         {
-            return false; // Allocation failed
+            return false;
         }
 
-        v_page_dir[page_dir_idx] = physical_new_table | PTE_RW | PTE_PRESENT | (flags & PTE_USER);
+        uint32_t pde = physical_new_table | PTE_RW | PTE_PRESENT | (allowed_flags & PTE_USER);
+        v_page_dir[page_dir_idx] = pde;
 
-        // Use the magic virtual address to zero out the newly mapped table!
-        uint32_t* v_new_table = (uint32_t*)(0xFFC00000 + (page_dir_idx * PAGE_SIZE));
+        // BUG-016: Keep master kernel_page_directory updated with new kernel PDEs
+        if ((allowed_flags & PTE_USER) == 0 && kernel_page_directory != 0)
+        {
+            kernel_page_directory[page_dir_idx] = pde;
+        }
+
+        uint32_t* v_new_table = (uint32_t*)(0xFFC00000u + (page_dir_idx * PAGE_SIZE));
+        __asm__ volatile ("invlpg (%0)" : : "b"((uint32_t)v_new_table) : "memory");
         memset(v_new_table, 0, PAGE_SIZE);
     }
-    else if((flags & PTE_USER) && !(v_page_dir[page_dir_idx] & PTE_USER))
+    else if ((allowed_flags & PTE_USER) && !(v_page_dir[page_dir_idx] & PTE_USER))
     {
         return false; // Cannot map user page in a kernel-only table
     }
 
-    uint32_t* pt = (uint32_t*)(0xFFC00000 + (page_dir_idx * PAGE_SIZE));
+    uint32_t* pt = (uint32_t*)(0xFFC00000u + (page_dir_idx * PAGE_SIZE));
+
+    // BUG-020: Refuse to silently overwrite an already-present mapping
+    if ((pt[page_table_idx] & PTE_PRESENT) != 0)
+        return false;
+
     pt[page_table_idx] = entry;
 
     __asm__ volatile ("invlpg (%0)" : : "b"(virtual_addr) : "memory");
@@ -83,64 +124,63 @@ bool map_page(uint32_t virtual_addr, uint32_t physical_addr, uint32_t flags)
 
 void unmap_page(uint32_t virtual_addr)
 {
-    uint32_t page_dir_idx = (virtual_addr >> 22) & 0x3FF;
-    uint32_t page_table_idx = (virtual_addr >> 12) & 0x3FF;
+    // BUG-022: Ignore unaligned or recursive addresses
+    if ((virtual_addr & 0xFFFu) != 0 || virtual_addr >= 0xFFC00000u)
+        return;
 
-    // Access the Page Directory using the recursive pointer
-    uint32_t* v_page_dir = (uint32_t*)0xFFFFF000;
+    uint32_t page_dir_idx = (virtual_addr >> 22) & 0x3FFu;
+    uint32_t page_table_idx = (virtual_addr >> 12) & 0x3FFu;
 
-    // If the directory entry isn't present, the page is already unmapped
-    if((v_page_dir[page_dir_idx] & PTE_PRESENT) == 0)
-    {
-        return; 
-    }
-    
-    uint32_t* pt = (uint32_t*)(0xFFC00000 + (page_dir_idx * PAGE_SIZE));
-    if((pt[page_table_idx] & PTE_PRESENT) == 0)
-    {
-        return; // Page is already unmapped
-    }
+    uint32_t* v_page_dir = (uint32_t*)0xFFFFF000u;
+
+    if ((v_page_dir[page_dir_idx] & PTE_PRESENT) == 0)
+        return;
+
+    uint32_t* pt = (uint32_t*)(0xFFC00000u + (page_dir_idx * PAGE_SIZE));
+    if ((pt[page_table_idx] & PTE_PRESENT) == 0)
+        return;
 
     pt[page_table_idx] = 0;
     __asm__ volatile ("invlpg (%0)" : : "b"(virtual_addr) : "memory");
 
-    if ((v_page_dir[page_dir_idx] & PTE_USER) == 0)
-    {
-        return;
-    }
+    // Never reclaim PDE 0 (the first 4 MiB identity-mapped kernel table)
+    if(page_dir_idx == 0) return;
 
     for (uint32_t i = 0; i < PT_ENTRIES; ++i)
     {
         if ((pt[i] & PTE_PRESENT) != 0)
-        {
-            return; // Found a present page, so don't free the table
-        }
+            return;
     }
 
-    uint32_t page_table_phys = v_page_dir[page_dir_idx] & 0xFFFFF000;
+    uint32_t pde = v_page_dir[page_dir_idx];
+    uint32_t page_table_phys = pde & 0xFFFFF000u;
     v_page_dir[page_dir_idx] = 0;
+
+    if ((pde & PTE_USER) == 0 && kernel_page_directory != 0)
+    {
+        kernel_page_directory[page_dir_idx] = 0;
+    }
+
+    // BUG-021: Invalidate the recursive page-table alias after reclaiming the table
+    __asm__ volatile ("invlpg (%0)" : : "b"((uint32_t)pt) : "memory");
     pmm_free_block((void*)page_table_phys);
 }
 
 uint32_t get_physical_addr(uint32_t virtual_addr)
 {
-    uint32_t page_dir_idx = (virtual_addr >> 22) & 0x3FF;
-    uint32_t page_table_idx = (virtual_addr >> 12) & 0x3FF;
-    uint32_t offset = virtual_addr & 0xFFF; 
+    uint32_t page_dir_idx = (virtual_addr >> 22) & 0x3FFu;
+    uint32_t page_table_idx = (virtual_addr >> 12) & 0x3FFu;
+    uint32_t offset = virtual_addr & 0xFFFu;
 
-    uint32_t* v_page_dir = (uint32_t*)0xFFFFF000;
-    if((v_page_dir[page_dir_idx] & PTE_PRESENT) == 0) {
-        return 0; // Page is not mapped
-    }
+    uint32_t* v_page_dir = (uint32_t*)0xFFFFF000u;
+    if ((v_page_dir[page_dir_idx] & PTE_PRESENT) == 0)
+        return 0;
 
-    uint32_t* pt = (uint32_t*)(0xFFC00000 + (page_dir_idx * PAGE_SIZE));
+    uint32_t* pt = (uint32_t*)(0xFFC00000u + (page_dir_idx * PAGE_SIZE));
+    if ((pt[page_table_idx] & PTE_PRESENT) == 0)
+        return 0;
 
-    if((pt[page_table_idx] & PTE_PRESENT) == 0) {
-        return 0; // Page is not mapped
-    }
-
-
-    uint32_t physical_frame = pt[page_table_idx] & 0xFFFFF000;
+    uint32_t physical_frame = pt[page_table_idx] & 0xFFFFF000u;
     return physical_frame + offset;
 }
 
@@ -151,16 +191,17 @@ uint32_t* paging_get_kernel_directory(void)
 
 uint32_t* paging_create_address_space(void)
 {
-    uint32_t* new_directory = pmm_alloc_block();
-    if (new_directory == 0) return 0;
+    uint32_t* new_directory_phys = pmm_alloc_block();
+    if (new_directory_phys == 0) return 0;
 
+    uint32_t eflags;
+    __asm__ volatile ("pushfl; pop %0; cli" : "=r"(eflags) : : "memory");
+
+    // BUG-043: Initialize new page directory via temporary virtual mapping
+    // so physical frames >= 4 MiB never cause a page fault.
+    uint32_t* new_directory = (uint32_t*)paging_temp_map((uint32_t)new_directory_phys);
     memset(new_directory, 0, PAGE_SIZE);
 
-    /*
-     * Copy kernel mappings only.
-     * Any PDE marked USER belongs to the current process
-     * and must NOT be copied.
-    */
     for (uint32_t i = 0; i < 1023; ++i)
     {
         uint32_t entry = kernel_page_directory[i];
@@ -170,26 +211,70 @@ uint32_t* paging_create_address_space(void)
         }
     }
 
-    /*
-     * Recursive mapping for this address space.
-     */
-    new_directory[1023] = (uint32_t)new_directory | PTE_PRESENT | PTE_RW;
-    return new_directory;
+    new_directory[1023] = (uint32_t)new_directory_phys | PTE_PRESENT | PTE_RW;
+    paging_temp_unmap();
+
+    __asm__ volatile ("push %0; popfl" : : "r"(eflags) : "memory", "cc");
+    return new_directory_phys;
 }
 
 void paging_switch_directory(uint32_t* directory)
 {
+    if (directory == 0) return;
+
+    // BUG-016: Synchronize kernel PDEs into the target directory BEFORE loading CR3
+    if (directory != kernel_page_directory && kernel_page_directory != 0)
+    {
+        if (directory == current_page_directory)
+        {
+            uint32_t* v_page_dir = (uint32_t*)0xFFFFF000u;
+            for (uint32_t i = 0; i < 1023; ++i)
+            {
+                if ((v_page_dir[i] & PTE_USER) == 0)
+                {
+                    v_page_dir[i] = kernel_page_directory[i];
+                }
+            }
+        }
+        else
+        {
+            uint32_t eflags;
+            __asm__ volatile ("pushfl; pop %0; cli" : "=r"(eflags) : : "memory");
+
+            uint32_t* target_dir = (uint32_t*)paging_temp_map((uint32_t)directory);
+            for (uint32_t i = 0; i < 1023; ++i)
+            {
+                if ((target_dir[i] & PTE_USER) == 0)
+                {
+                    target_dir[i] = kernel_page_directory[i];
+                }
+            }
+            paging_temp_unmap();
+
+            __asm__ volatile ("push %0; popfl" : : "r"(eflags) : "memory", "cc");
+        }
+    }
+
     current_page_directory = directory;
     load_page_directory(directory);
 }
 
 bool paging_map_page(uint32_t* directory, uint32_t virtual_addr, uint32_t physical_addr, uint32_t flags)
 {
+    if (directory == 0) return false;
+
+    // BUG-045: Disable interrupts while CR3 is temporarily switched so
+    // a timer preemption cannot reload current_task->page_directory mid-map.
+    uint32_t eflags;
+    __asm__ volatile ("pushfl; pop %0; cli" : "=r"(eflags) : : "memory");
+
     uint32_t* old_directory = current_page_directory;
     if (old_directory != directory) paging_switch_directory(directory);
 
     bool result = map_page(virtual_addr, physical_addr, flags);
     if (old_directory != directory) paging_switch_directory(old_directory);
+
+    __asm__ volatile ("push %0; popfl" : : "r"(eflags) : "memory", "cc");
     return result;
 }
 
@@ -199,33 +284,28 @@ bool user_range_valid(uint32_t virtual_addr, uint32_t size)
 
     uint32_t end = virtual_addr + size - 1;
 
-    // Detect 32-bit address wraparound.
     if (end < virtual_addr) return false;
     if (virtual_addr > USER_SPACE_END || end > USER_SPACE_END) return false;
 
-    uint32_t first_page = virtual_addr & 0xFFFFF000;
-    uint32_t last_page  = end & 0xFFFFF000;
-    uint32_t* v_page_dir = (uint32_t*)0xFFFFF000;
+    uint32_t first_page = virtual_addr & 0xFFFFF000u;
+    uint32_t last_page  = end & 0xFFFFF000u;
+    uint32_t* v_page_dir = (uint32_t*)0xFFFFF000u;
 
     for (uint32_t page = first_page;; page += PAGE_SIZE)
     {
-        uint32_t page_dir_idx  = (page >> 22) & 0x3FF;
-        uint32_t page_table_idx = (page >> 12) & 0x3FF;
+        uint32_t page_dir_idx   = (page >> 22) & 0x3FFu;
+        uint32_t page_table_idx = (page >> 12) & 0x3FFu;
 
         uint32_t pde = v_page_dir[page_dir_idx];
 
         if ((pde & PTE_PRESENT) == 0 || (pde & PTE_USER) == 0)
-        {
             return false;
-        }
 
-        uint32_t* pt = (uint32_t*)(0xFFC00000 + page_dir_idx * PAGE_SIZE);
+        uint32_t* pt = (uint32_t*)(0xFFC00000u + page_dir_idx * PAGE_SIZE);
         uint32_t pte = pt[page_table_idx];
 
         if ((pte & PTE_PRESENT) == 0 || (pte & PTE_USER) == 0)
-        {
             return false;
-        }
 
         if (page == last_page) break;
     }
@@ -238,13 +318,15 @@ void paging_destroy_address_space(uint32_t* directory)
     if (directory == 0) return;
     if (directory == kernel_page_directory) return;
 
-    if (current_page_directory == directory)
-    {
-        paging_switch_directory(kernel_page_directory);
-    }
+    uint32_t eflags;
+    __asm__ volatile ("pushfl; pop %0; cli" : "=r"(eflags) : : "memory");
+
+    uint32_t* restore_dir = (current_page_directory == directory || current_page_directory == 0)
+                            ? kernel_page_directory
+                            : current_page_directory;
 
     paging_switch_directory(directory);
-    uint32_t* v_page_dir = (uint32_t*)0xFFFFF000;
+    uint32_t* v_page_dir = (uint32_t*)0xFFFFF000u;
 
     for (uint32_t i = 0; i < 1023; ++i)
     {
@@ -253,24 +335,32 @@ void paging_destroy_address_space(uint32_t* directory)
         if ((pde & PTE_PRESENT) == 0) continue;
         if ((pde & PTE_USER) == 0) continue;
 
-        uint32_t page_table_phys = pde & 0xFFFFF000;
-        uint32_t* page_table =(uint32_t*)(0xFFC00000 + (i * PAGE_SIZE));
+        uint32_t page_table_phys = pde & 0xFFFFF000u;
+        uint32_t* page_table = (uint32_t*)(0xFFC00000u + (i * PAGE_SIZE));
 
         for (uint32_t j = 0; j < PT_ENTRIES; ++j)
         {
             uint32_t pte = page_table[j];
             if ((pte & PTE_PRESENT) == 0) continue;
 
-            uint32_t physical_page = pte & 0xFFFFF000;
-            if (physical_page != 0) pmm_free_block((void*)physical_page);
+            uint32_t physical_page = pte & 0xFFFFF000u;
+
+            // BUG-024: Only free frames owned by this mapping (skip PTE_SHARED frames)
+            if (physical_page != 0 && (pte & PTE_SHARED) == 0)
+            {
+                pmm_free_block((void*)physical_page);
+            }
 
             page_table[j] = 0;
         }
 
-        pmm_free_block((void*)page_table_phys);
         v_page_dir[i] = 0;
+        __asm__ volatile ("invlpg (%0)" : : "b"((uint32_t)page_table) : "memory");
+        pmm_free_block((void*)page_table_phys);
     }
 
-    paging_switch_directory(kernel_page_directory);
+    paging_switch_directory(restore_dir);
     pmm_free_block((void*)directory);
+
+    __asm__ volatile ("push %0; popfl" : : "r"(eflags) : "memory", "cc");
 }

@@ -11,8 +11,11 @@
 
 #define E820_COUNT_PTR   ((uint32_t*)0x5000)
 #define E820_ENTRIES_PTR ((struct mem_map_entry*)0x5004)
-#define MAX_SAVED_E820   32
-#define MAX_SAVED_ALLOCS 128
+#define MAX_SAVED_RANGES 512
+#define MAX_SAVED_E820 32
+
+static pmm_alloc_range_t saved_ranges[MAX_SAVED_RANGES];
+static struct mem_map_entry orig_entries[MAX_SAVED_E820];
 
 static void test_pmm_basic(void)
 {
@@ -129,16 +132,14 @@ static void test_pmm_e820_bounds_and_rounding(void)
     int total_before = get_total_memory();
     int used_before  = get_used_memory();
 
-    uint32_t saved_allocs[MAX_SAVED_ALLOCS];
-    uint32_t saved_alloc_count = pmm_save_allocated_blocks(saved_allocs, MAX_SAVED_ALLOCS);
-    test_assert_true(saved_alloc_count <= MAX_SAVED_ALLOCS, "e820 test(snapshot allocated blocks)");
-    if (saved_alloc_count > MAX_SAVED_ALLOCS) return;
+    uint32_t saved_range_count = pmm_save_allocated_ranges(saved_ranges, MAX_SAVED_RANGES);
+    test_assert_true(saved_range_count <= MAX_SAVED_RANGES, "e820 test(snapshot allocated blocks)");
+    if (saved_range_count > MAX_SAVED_RANGES) return;
 
     uint32_t orig_e820_count = *E820_COUNT_PTR;
     test_assert_true(orig_e820_count <= MAX_SAVED_E820, "e820 test(snapshot e820 table)");
     if (orig_e820_count > MAX_SAVED_E820) return;
 
-    struct mem_map_entry orig_entries[MAX_SAVED_E820];
     memcpy(orig_entries, E820_ENTRIES_PTR, orig_e820_count * sizeof(struct mem_map_entry));
 
     // Preserve EFLAGS and disable interrupts while synthetic PMM state is active
@@ -199,7 +200,7 @@ static void test_pmm_e820_bounds_and_rounding(void)
     *E820_COUNT_PTR = orig_e820_count;
     memcpy(E820_ENTRIES_PTR, orig_entries, orig_e820_count * sizeof(struct mem_map_entry));
     pmm_init();
-    pmm_restore_allocated_blocks(saved_allocs, saved_alloc_count);
+    pmm_restore_allocated_ranges(saved_ranges, saved_range_count);
 
     // FIX: Use AT&T syntax `pushfl` and `popfl` for GCC inline assembly
     __asm__ volatile ("push %0; popfl" : : "r"(eflags) : "memory", "cc");
