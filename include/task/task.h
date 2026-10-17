@@ -1,6 +1,9 @@
 #pragma once
 #include <stdint.h>
 
+#define USER_CODE_LOAD_ADDR 0x00400000u
+#define USER_STACK_TOP_ADDR 0x00801000u
+
 typedef enum {
     TASK_READY,
     TASK_RUNNING,
@@ -24,4 +27,5 @@ typedef struct task{
 
 extern void switch_task(uint32_t* current_esp, uint32_t* next_esp);
 task_t* create_task(const char* name, void (*entry_point)(void));
-task_t* create_user_task(const char* name, uint32_t user_eip, uint32_t user_esp);
+task_t* create_user_task(const char* name, const void* code, uint32_t code_size, uint32_t user_eip, uint32_t user_esp);
+void destroy_task(task_t* task);
