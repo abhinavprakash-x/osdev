@@ -72,8 +72,14 @@ isr_common_stub:
     pushad          ; Push edi, esi, ebp, esp, ebx, edx, ecx, eax
     
     xor eax, eax
-    mov ax, ds      ; Save the current data segment to the stack
-    push eax        
+    mov ax, ds      ; Save the current segments to the stack
+    push eax  
+    mov ax, es
+    push eax
+    mov ax, fs
+    push eax
+    mov ax, gs
+    push eax      
 
     mov ax, 0x10    ; Load the Kernel Data Segment (0x10 is from our GDT)
     mov ds, ax
@@ -85,11 +91,14 @@ isr_common_stub:
     call isr_handler ; Jump into C!
     add esp, 4
 
-    pop eax         ; Restore the original data segment
-    mov ds, ax
-    mov es, ax
-    mov fs, ax
+    pop eax         ; Restore the original segments
     mov gs, ax
+    pop eax
+    mov fs, ax
+    pop eax
+    mov es, ax
+    pop eax
+    mov ds, ax
 
     popad           ; Restore all general purpose registers
     add esp, 8      ; Clean up the pushed error code and pushed ISR number from the stack

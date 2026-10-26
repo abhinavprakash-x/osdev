@@ -18,7 +18,7 @@ struct idt_ptr {
 
 // Represents the CPU state pushed to the stack when an interrupt occurs.
 typedef struct {
-    uint32_t ds;                                     // Data segment selector
+    uint32_t gs, fs, es, ds;                         // Pushed segment selectors
     uint32_t edi, esi, ebp, esp, ebx, edx, ecx, eax; // Pushed by `pushad`
     uint32_t int_no, err_code;                       // Interrupt number and error code
     uint32_t eip, cs, eflags, useresp, ss;           // Pushed by the CPU automatically

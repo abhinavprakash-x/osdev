@@ -13,7 +13,7 @@
 #define PIC1_COMMAND       0x20
 #define PIC_EOI            0x20
 
-volatile char keyboard_buffer[256];
+volatile char keyboard_buffer[KEYBOARD_BUFFER_SIZE];
 volatile int buffer_head = 0;
 volatile int buffer_tail = 0;
 
@@ -56,43 +56,87 @@ const char keyboard_map_shift[128] = {
 
 static bool shift_pressed = false;
 static bool caps_lock = false;
+static bool extended_scancode = false;
+
+static void keyboard_enqueue_char(char c)
+{
+    if (c == 0) return;
+
+    int next_head = (buffer_head + 1) % KEYBOARD_BUFFER_SIZE;
+    if (next_head != buffer_tail)
+    {
+        keyboard_buffer[buffer_head] = c;
+        buffer_head = next_head;
+    }
+}
+
+void keyboard_reset_state(void)
+{
+    uint32_t eflags;
+    __asm__ volatile ("pushfl; pop %0; cli" : "=r"(eflags) : : "memory");
+
+    buffer_head = 0;
+    buffer_tail = 0;
+    shift_pressed = false;
+    caps_lock = false;
+    extended_scancode = false;
+
+    __asm__ volatile ("push %0; popfl" : : "r"(eflags) : "memory", "cc");
+}
+
+void keyboard_process_scancode(uint8_t scancode)
+{
+    // BUG-032: Track 0xE0 extended scancode prefix
+    if (scancode == 0xE0)
+    {
+        extended_scancode = true;
+        return;
+    }
+
+    if (extended_scancode)
+    {
+        extended_scancode = false;
+
+        if(scancode & 0x80) return; // Ignore key releases for extended scancodes
+        if (scancode == 0x1C) keyboard_enqueue_char('\n'); // Keypad Enter
+        else if (scancode == 0x35) keyboard_enqueue_char('/'); // Keypad '/'
+
+        return;
+    }
+
+    if (scancode == 0xAA || scancode == 0xB6)
+    {
+        shift_pressed = false;
+    }
+    else if (scancode < 0x80)
+    {
+        if (scancode == 0x2A || scancode == 0x36) shift_pressed = true;
+        else if (scancode == 0x3A) caps_lock = !caps_lock;
+        else if (scancode == 0x3B) shell_clear_screen(); // F1 Clear the Screen
+        else
+        {
+            char c = shift_pressed ? keyboard_map_shift[scancode] : keyboard_map[scancode];
+            if (caps_lock)
+            {
+                if (c >= 'a' && c <= 'z') c = (char)(c - 32);
+                else if (c >= 'A' && c <= 'Z') c = (char)(c + 32);
+            }
+            keyboard_enqueue_char(c);
+        }
+    }
+}
 
 void keyboard_handler(void) 
 {
     uint8_t scancode = inb(KEYBOARD_DATA_PORT);
-
-    if (scancode == 0xAA || scancode == 0xB6)
-        shift_pressed = false;
-
-    else if (scancode < 0x80) {
-        
-        if (scancode == 0x2A || scancode == 0x36) shift_pressed = true;
-        else if (scancode == 0x3A) caps_lock = !caps_lock;
-        else if (scancode == 0x3B) shell_clear_screen(); // F1 Clear the Screen
-        else {
-            char c = 0;
-            if (shift_pressed) c = keyboard_map_shift[scancode];
-            else c = keyboard_map[scancode];
-            if (caps_lock) {
-                if (c >= 'a' && c <= 'z') {
-                    c = c - 32; 
-                } else if (c >= 'A' && c <= 'Z') {
-                    c = c + 32; 
-                }
-            }
-            if (c != 0) {
-                keyboard_buffer[buffer_head] = c;
-                buffer_head = (buffer_head + 1) % 256;
-            }
-        }
-    }
-    outb(PIC1_COMMAND, PIC_EOI); 
+    keyboard_process_scancode(scancode);
+    outb(PIC1_COMMAND, PIC_EOI);
 }
 
 char keyboard_get_char(void) {
     if (buffer_head == buffer_tail) return 0; // Buffer is empty
     
     char c = keyboard_buffer[buffer_tail];
-    buffer_tail = (buffer_tail + 1) % 256;
+    buffer_tail = (buffer_tail + 1) % KEYBOARD_BUFFER_SIZE;
     return c;
 }
