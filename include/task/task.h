@@ -29,3 +29,6 @@ extern void switch_task(uint32_t* current_esp, uint32_t* next_esp);
 task_t* create_task(const char* name, void (*entry_point)(void));
 task_t* create_user_task(const char* name, const void* code, uint32_t code_size, uint32_t user_eip, uint32_t user_esp);
 void destroy_task(task_t* task);
+
+uint32_t task_get_next_pid(void);
+void task_set_next_pid(uint32_t next);

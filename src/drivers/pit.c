@@ -25,6 +25,8 @@ void pit_handler(void)
     tick_count++;
     outb(PIC1_COMMAND, PIC_EOI);
 
+    if(scheduler_is_idling()) return;
+
     time_slice++;
     if (time_slice >= 5)
     {
@@ -36,6 +38,7 @@ void pit_handler(void)
 void pit_init(uint32_t freq)
 {
     if (freq < 20) freq = 20;
+    if (freq > PIT_BASE_FREQ) freq = PIT_BASE_FREQ;
     
     timer_freq = freq;
     uint32_t divisor = PIT_BASE_FREQ / freq;
@@ -55,6 +58,11 @@ uint32_t get_ticks(void)
     return tick_count;
 }
 
+uint32_t get_timer_freq(void)
+{
+    return timer_freq;
+}
+
 uint32_t ticks_to_ms(uint32_t ticks)
 {
     if (timer_freq == 0)
@@ -63,7 +71,24 @@ uint32_t ticks_to_ms(uint32_t ticks)
     return (uint32_t)((uint64_t)ticks * 1000) / timer_freq;
 }
 
-uint32_t get_timer_freq(void)
+uint32_t ms_to_ticks(uint32_t milliseconds)
 {
-    return timer_freq;
+    if (milliseconds == 0 || timer_freq == 0)
+        return 0;
+
+    uint32_t whole_seconds = milliseconds / 1000u;
+    uint32_t rem_ms = milliseconds % 1000u;
+
+    uint32_t max_seconds = MAX_SLEEP_TICKS / timer_freq;
+    if (whole_seconds > max_seconds)
+        return MAX_SLEEP_TICKS;
+
+    uint32_t base_ticks = whole_seconds * timer_freq;
+    uint32_t rem_ticks = (rem_ms * timer_freq + 999u) / 1000u;
+
+    if (base_ticks > (MAX_SLEEP_TICKS - rem_ticks))
+        return MAX_SLEEP_TICKS;
+
+    uint32_t total_ticks = base_ticks + rem_ticks;
+    return (total_ticks == 0) ? 1u : total_ticks;
 }

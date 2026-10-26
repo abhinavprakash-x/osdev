@@ -8,6 +8,30 @@
 extern void enter_usermode(uint32_t user_eip, uint32_t user_esp);
 static uint32_t next_pid = 1;
 
+static uint32_t allocate_pid(void)
+{
+    for (uint32_t attempts = 0; attempts < 0xFFFFFFFFu; ++attempts)
+    {
+        if (next_pid == 0)
+            next_pid = 1;
+
+        uint32_t candidate = next_pid++;
+        if (!scheduler_pid_exists(candidate))
+            return candidate;
+    }
+    return 0;
+}
+
+uint32_t task_get_next_pid(void)
+{
+    return next_pid;
+}
+
+void task_set_next_pid(uint32_t next)
+{
+    next_pid = (next == 0) ? 1 : next;
+}
+
 void destroy_task(task_t* task)
 {
     if (task == 0) return;
@@ -59,9 +83,17 @@ task_t* create_task(const char* name, void (*entry_point)(void))
     // 4. Save the current stack pointer into the PCB
     new_task->esp = (uint32_t)stack;
     new_task->next = 0;
-    new_task->pid = next_pid++;
+
+    new_task->pid = allocate_pid();
+    if (new_task->pid == 0)
+    {
+        destroy_task(new_task);
+        return 0;
+    }
+
     new_task->name = name;
     new_task->state = TASK_READY;
+
     new_task->stack_allocation = stack_memory;
     new_task->kernel_stack_top = 0;
     new_task->page_directory = paging_get_kernel_directory();
@@ -188,9 +220,17 @@ task_t* create_user_task(const char* name, const void* code, uint32_t code_size,
 
     new_task->esp = (uint32_t)stack;
     new_task->next = 0;
-    new_task->pid = next_pid++;
+
+    new_task->pid = allocate_pid();
+    if (new_task->pid == 0)
+    {
+        destroy_task(new_task);
+        return 0;
+    }
+
     new_task->name = name;
     new_task->state = TASK_READY;
+
     new_task->stack_allocation = stack_memory;
     new_task->page_directory = page_directory;
     new_task->wake_time = 0;

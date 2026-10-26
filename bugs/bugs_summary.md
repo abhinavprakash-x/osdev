@@ -20,7 +20,7 @@ Detailed descriptions live in the range files (`bugs_001-025.md`, `bugs_026-050.
 | BUG-002 | VERIFIED | Critical | Tasks / Address Space |
 | BUG-003 | VERIFIED | Critical | User Task Creation |
 | BUG-004 | VERIFIED | Critical | User Task Creation |
-| BUG-005 | OPEN | Critical | Scheduler |
+| BUG-005 | VERIFIED | Critical | Scheduler |
 | BUG-006 | VERIFIED | Critical | Scheduler / Tasks |
 | BUG-007 | VERIFIED | Critical | PMM / E820 |
 | BUG-008 | VERIFIED | Critical | PMM |
@@ -29,7 +29,7 @@ Detailed descriptions live in the range files (`bugs_001-025.md`, `bugs_026-050.
 | BUG-011 | OPEN | High | Keyboard Driver |
 | BUG-012 | VERIFIED | High | PMM |
 | BUG-013 | OPEN | High | Shell |
-| BUG-014 | OPEN | Critical | Scheduler |
+| BUG-014 | VERIFIED | Critical | Scheduler |
 | BUG-015 | VERIFIED | Critical | Scheduler |
 | BUG-016 | VERIFIED | Critical | Paging |
 | BUG-017 | VERIFIED | Critical | User Task Creation / Paging |
@@ -43,7 +43,7 @@ Detailed descriptions live in the range files (`bugs_001-025.md`, `bugs_026-050.
 | BUG-025 | VERIFIED | Significant | PMM / E820 |
 | BUG-026 | OPEN | Significant | Bootloader / PMM / E820 |
 | BUG-027 | OPEN | Significant | Bootloader / E820 |
-| BUG-028 | OPEN | Significant | Scheduler / Timer |
+| BUG-028 | VERIFIED | Significant | Scheduler / Timer |
 | BUG-029 | OPEN | Significant | Interrupts / User Mode |
 | BUG-030 | VERIFIED | Significant | Heap |
 | BUG-031 | VERIFIED | Significant | Heap / Paging |
@@ -56,7 +56,7 @@ Detailed descriptions live in the range files (`bugs_001-025.md`, `bugs_026-050.
 | BUG-038 | VERIFIED | Build / Test | Scheduler Tests |
 | BUG-039 | VERIFIED | Build / Test | Paging Tests |
 | BUG-040 | VERIFIED | Build / Test | User Test / Assembly |
-| BUG-041 | OPEN | Significant | Scheduler / Tasks |
+| BUG-041 | VERIFIED | Significant | Scheduler / Tasks |
 | BUG-042 | OPEN | Significant | PMM / E820 |
 | BUG-043 | VERIFIED | Critical | Paging |
 | BUG-044 | VERIFIED | Significant | Build / Test |
