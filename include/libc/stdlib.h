@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdint.h>
+#include <stdbool.h>
 
 void itoa(int num, char* str);
 int atoi(const char* str);

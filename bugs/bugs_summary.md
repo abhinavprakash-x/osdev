@@ -24,7 +24,7 @@ Detailed descriptions live in the range files (`bugs_001-025.md`, `bugs_026-050.
 | BUG-006 | VERIFIED | Critical | Scheduler / Tasks |
 | BUG-007 | VERIFIED | Critical | PMM / E820 |
 | BUG-008 | VERIFIED | Critical | PMM |
-| BUG-009 | OPEN | High | Bootloader / Build |
+| BUG-009 | VERIFIED | High | Bootloader / Build |
 | BUG-010 | VERIFIED | Critical | User Task Creation |
 | BUG-011 | VERIFIED | High | Keyboard Driver |
 | BUG-012 | VERIFIED | High | PMM |

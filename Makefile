@@ -26,6 +26,9 @@ BOOT_BIN    := $(BUILD_DIR)/bootloader.bin
 KERNEL_BIN  := $(BUILD_DIR)/kernel.bin
 BOOT_IMAGE  := $(BUILD_DIR)/boot.img
 
+KERNEL_MAX_SECTORS := 100
+KERNEL_MAX_SIZE    := $(shell expr $(KERNEL_MAX_SECTORS) \* 512)
+
 
 # ============================================================
 # Compiler / Assembler / Linker flags
@@ -178,8 +181,13 @@ $(KERNEL_BIN): $(OBJECTS) $(LINKER)
 
 $(BOOT_IMAGE): $(BOOT_BIN) $(KERNEL_BIN)
 	@mkdir -p $(dir $@)
+	@kernel_size=$$(stat -c %s $(KERNEL_BIN)); \
+	if [ $$kernel_size -gt $(KERNEL_MAX_BYTES) ]; then \
+		echo "Error: kernel.bin ($$kernel_size bytes) exceeds bootloader limit ($(KERNEL_MAX_BYTES) bytes / $(KERNEL_MAX_SECTORS) sectors)."; \
+		exit 1; \
+	fi
 	cat $^ > $@
-	dd if=/dev/zero bs=512 count=100 >> $@
+	dd if=/dev/zero bs=512 count=$(KERNEL_MAX_SECTORS) >> $@
 
 
 # ============================================================
