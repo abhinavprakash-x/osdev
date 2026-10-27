@@ -364,3 +364,45 @@ void paging_destroy_address_space(uint32_t* directory)
 
     __asm__ volatile ("push %0; popfl" : : "r"(eflags) : "memory", "cc");
 }
+
+bool paging_is_mapped_range(uint32_t virtual_addr, uint32_t size, bool require_writable)
+{
+    if (size == 0) return false;
+
+    uint32_t end = virtual_addr + size - 1u;
+    if (end < virtual_addr) return false;
+
+    // Disallow recursive mapping region and reserved temporary slot
+    if (virtual_addr >= 0xFFC00000u || end >= 0xFFC00000u)
+        return false;
+
+    uint32_t first_page = virtual_addr & 0xFFFFF000u;
+    uint32_t last_page  = end & 0xFFFFF000u;
+    uint32_t* v_page_dir = (uint32_t*)0xFFFFF000u;
+
+    for (uint32_t page = first_page;; page += PAGE_SIZE)
+    {
+        if (page == PAGING_TEMP_VADDR)
+            return false;
+
+        uint32_t page_dir_idx   = (page >> 22) & 0x3FFu;
+        uint32_t page_table_idx = (page >> 12) & 0x3FFu;
+
+        uint32_t pde = v_page_dir[page_dir_idx];
+        if ((pde & PTE_PRESENT) == 0)
+            return false;
+        if (require_writable && (pde & PTE_RW) == 0)
+            return false;
+
+        uint32_t* pt = (uint32_t*)(0xFFC00000u + page_dir_idx * PAGE_SIZE);
+        uint32_t pte = pt[page_table_idx];
+        if ((pte & PTE_PRESENT) == 0)
+            return false;
+        if (require_writable && (pte & PTE_RW) == 0)
+            return false;
+
+        if (page == last_page) break;
+    }
+
+    return true;
+}

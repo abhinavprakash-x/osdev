@@ -201,3 +201,51 @@ void printf(const char* format, ...)
     }
     va_end(args);
 }
+
+bool parse_hex_u32(const char* str, uint32_t* out)
+{
+    if (str == 0 || out == 0) return false;
+
+    int i = 0;
+    while (str[i] == ' ') i++;
+
+    if (str[i] == '0' && (str[i + 1] == 'x' || str[i + 1] == 'X'))
+    {
+        i += 2;
+    }
+
+    uint32_t result = 0;
+    int sig_digits = 0;
+    bool has_digit = false;
+
+    while (str[i] != '\0' && str[i] != ' ')
+    {
+        uint32_t digit = 0;
+        if (str[i] >= '0' && str[i] <= '9')
+            digit = (uint32_t)(str[i] - '0');
+        else if (str[i] >= 'a' && str[i] <= 'f')
+            digit = (uint32_t)(str[i] - 'a' + 10);
+        else if (str[i] >= 'A' && str[i] <= 'F')
+            digit = (uint32_t)(str[i] - 'A' + 10);
+        else
+            return false;
+
+        has_digit = true;
+        if (result != 0 || digit != 0)
+        {
+            sig_digits++;
+            if (sig_digits > 8) return false;
+        }
+
+        result = (result << 4) | digit;
+        i++;
+    }
+
+    if (!has_digit) return false;
+
+    while (str[i] == ' ') i++;
+    if (str[i] != '\0') return false;
+
+    *out = result;
+    return true;
+}

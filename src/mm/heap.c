@@ -175,3 +175,31 @@ void kfree(void* ptr)
         curr = curr->next;
     }
 }
+
+bool heap_is_payload_range(uint32_t addr, size_t size)
+{
+    if (size == 0) return false;
+
+    uint32_t end = addr + (uint32_t)size - 1u;
+    if (end < addr) return false;
+    if (addr < (HEAP_START + sizeof(heap_block_t)) || end >= heap_end_vaddr)
+        return false;
+
+    heap_block_t* curr = head;
+    while (curr != 0)
+    {
+        if (curr->magic != HEAP_MAGIC)
+            return false;
+
+        uint32_t payload_start = (uint32_t)((uint8_t*)curr + sizeof(heap_block_t));
+        uint32_t payload_end   = payload_start + (uint32_t)curr->size - 1u;
+
+        if (addr >= payload_start && end <= payload_end)
+        {
+            return (curr->is_free == 0);
+        }
+        curr = curr->next;
+    }
+
+    return false;
+}

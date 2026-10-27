@@ -12,6 +12,7 @@
 #include "drivers/pit.h"
 #include "apps/kernel_tests.h"
 #include "mm/pmm.h"
+#include "mm/paging.h"
 #include "mm/heap.h"
 #include "task/scheduler.h"
 
@@ -169,49 +170,62 @@ void execute_command(void)
     }
     else if(strncmp(buffer, "free ", 5) == 0)
     {
-        char* buf = buffer + 5;
-        int addr = xtoi(buf);
-        kfree((void*)addr);
-        printf("Memory Freed Successfully.\n");
+        uint32_t addr = 0;
+        if (!parse_hex_u32(buffer + 5, &addr) || (addr % 8u) != 0 || !heap_is_payload_range(addr, 1))
+            printf("Error: Invalid or unallocated heap address.\n");
+        else
+        {
+            kfree((void*)addr);
+            printf("Memory Freed Successfully.\n");
+        }
     }
     else if (strncmp(buffer, "peek ", 5) == 0)
     {
         char* arg = buffer + 5;
-        uint32_t addr = (uint32_t)xtoi(arg);
-        uint32_t* ptr = (uint32_t*)addr;
-        
-        char val_str[32];
-        itox(*ptr, val_str);
-        printf("Value at 0x%s is: 0x%s\n", arg, val_str);
+        uint32_t addr = 0;
+
+        if (!parse_hex_u32(arg, &addr))
+            printf("Error: Invalid hex address (max 8 hex digits).\n");
+        else if ((addr & 0x3u) != 0)
+            printf("Error: Address 0x%x is not 4-byte aligned.\n", addr);
+        else if (!paging_is_mapped_range(addr, sizeof(uint32_t), false))
+            printf("Error: Address 0x%x is not mapped.\n", addr);
+        else
+        {
+            uint32_t* ptr = (uint32_t*)addr;
+            printf("Value at 0x%x is: 0x%x\n", addr, *ptr);
+        }
     }
     else if (strncmp(buffer, "poke ", 5) == 0)
     {
         char* arg = buffer + 5;
+        while (*arg == ' ') arg++;
+
         int i = 0;
-        
-        // Find the space separating the address and the value
-        while(arg[i] != ' ' && arg[i] != '\0') 
-        {
-            i++;
-        }
-        
-        if (arg[i] == ' ') 
+        while (arg[i] != ' ' && arg[i] != '\0') i++;
+
+        if (arg[i] == ' ')
         {
             arg[i] = '\0';
             char* val_arg = &arg[i + 1];
-            
-            uint32_t addr = (uint32_t)xtoi(arg);
-            uint32_t val = (uint32_t)xtoi(val_arg);
-            
-            uint32_t* ptr = (uint32_t*)addr;
-            *ptr = val;
-            
-            printf("Successfully poked memory.\n");
-        } 
-        else 
-        {
-            printf("Syntax: poke <address> <value>\n");
+
+            uint32_t addr = 0;
+            uint32_t val = 0;
+
+            if (!parse_hex_u32(arg, &addr) || !parse_hex_u32(val_arg, &val))
+                printf("Error: Invalid hex argument (max 8 hex digits).\n");
+            else if ((addr & 0x3u) != 0)
+                printf("Error: Address 0x%x is not 4-byte aligned.\n", addr);
+            else if (!heap_is_payload_range(addr, sizeof(uint32_t)))
+                printf("Error: Address 0x%x is outside allocated heap memory.\n", addr);
+            else
+            {
+                uint32_t* ptr = (uint32_t*)addr;
+                *ptr = val;
+                printf("Successfully poked memory.\n");
+            }
         }
+        else printf("Syntax: poke <address> <value>\n");
     }
     else if (strcmp(buffer, "cpuinfo") == 0)
     {

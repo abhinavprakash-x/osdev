@@ -33,3 +33,4 @@ void paging_switch_directory(uint32_t* directory);
 bool paging_map_page(uint32_t* directory, uint32_t virtual_addr, uint32_t physical_addr, uint32_t flags);
 
 bool user_range_valid(uint32_t virtual_addr, uint32_t size);
+bool paging_is_mapped_range(uint32_t virtual_addr, uint32_t size, bool require_writable);

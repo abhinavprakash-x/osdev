@@ -18,3 +18,4 @@ typedef struct heap_block {
 void heap_init(void);
 void* kmalloc(size_t size);
 void kfree(void* ptr);
+bool heap_is_payload_range(uint32_t addr, size_t size);

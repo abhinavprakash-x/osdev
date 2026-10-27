@@ -97,5 +97,19 @@ void test_heap_suite(void)
         test_assert_equal_int(1, block_g->is_free, "heap BUG-030(double kfree safely ignored)");
     }
 
+    // 8. BUG-013: Shell poke/free payload range validation
+    uint8_t *h = (uint8_t*)kmalloc(16);
+    test_assert_true(h != 0, "heap BUG-013(alloc for payload range check)");
+    if (h != 0)
+    {
+        test_assert_true(heap_is_payload_range((uint32_t)h, 4), "heap BUG-013(valid payload start accepted)");
+        test_assert_true(heap_is_payload_range((uint32_t)(h + 12), 4), "heap BUG-013(valid payload end accepted)");
+        test_assert_true(!heap_is_payload_range((uint32_t)(h - sizeof(heap_block_t)), 4), "heap BUG-013(block header rejected)");
+        test_assert_true(!heap_is_payload_range((uint32_t)(h + 14), 4), "heap BUG-013(payload overrun rejected)");
+        test_assert_true(!heap_is_payload_range(0x00008000u, 4), "heap BUG-013(kernel code address rejected)");
+        kfree(h);
+        test_assert_true(!heap_is_payload_range((uint32_t)h, 4), "heap BUG-013(freed payload rejected)");
+    }
+
     printf("Heap tests complete.\n");
 }

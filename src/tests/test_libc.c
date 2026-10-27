@@ -139,6 +139,21 @@ static void test_memcpy(void)
     test_assert_true(ok, "memcpy(array)");
 }
 
+static void test_parse_hex_u32(void)
+{
+    uint32_t val = 0;
+
+    test_assert_true(parse_hex_u32("0", &val) && val == 0, "parse_hex_u32(zero)");
+    test_assert_true(parse_hex_u32("0xDEADBEEF", &val) && val == 0xDEADBEEFu, "parse_hex_u32(0xDEADBEEF)");
+    test_assert_true(parse_hex_u32("00012345678", &val) && val == 0x12345678u, "parse_hex_u32(leading zeros)");
+
+    // BUG-013: Reject > 8 hex digits (e.g. 123456789), empty strings, and non-hex characters
+    test_assert_true(!parse_hex_u32("123456789", &val), "parse_hex_u32 BUG-013(>8 hex digits rejected)");
+    test_assert_true(!parse_hex_u32("", &val), "parse_hex_u32 BUG-013(empty rejected)");
+    test_assert_true(!parse_hex_u32("0x", &val), "parse_hex_u32 BUG-013(prefix only rejected)");
+    test_assert_true(!parse_hex_u32("0x123G", &val), "parse_hex_u32 BUG-013(invalid char rejected)");
+}
+
 void test_string(void)
 {
     printf("[String Library]\n");
@@ -155,6 +170,7 @@ void test_stdlib(void)
     test_itoa();
     test_xtoi();
     test_itox();
+    test_parse_hex_u32();
     printf("Stdlib tests complete.\n");
 }
 

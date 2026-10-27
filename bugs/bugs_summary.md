@@ -28,7 +28,7 @@ Detailed descriptions live in the range files (`bugs_001-025.md`, `bugs_026-050.
 | BUG-010 | VERIFIED | Critical | User Task Creation |
 | BUG-011 | VERIFIED | High | Keyboard Driver |
 | BUG-012 | VERIFIED | High | PMM |
-| BUG-013 | OPEN | High | Shell |
+| BUG-013 | VERIFIED | High | Shell |
 | BUG-014 | VERIFIED | Critical | Scheduler |
 | BUG-015 | VERIFIED | Critical | Scheduler |
 | BUG-016 | VERIFIED | Critical | Paging |
