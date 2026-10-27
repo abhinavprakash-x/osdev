@@ -81,7 +81,7 @@ CFLAGS := \
 ASFLAGS := -f elf32
 
 # NASM flags for the bootloader
-BOOT_ASFLAGS := -f bin
+BOOT_ASFLAGS := -f bin -DKERNEL_MAX_SECTORS=$(KERNEL_MAX_SECTORS)
 
 # Linker flags
 LDFLAGS := \
@@ -143,7 +143,7 @@ all: $(BOOT_IMAGE)
 # Bootloader
 # ============================================================
 
-$(BOOT_BIN): $(BOOTLOADER)
+$(BOOT_BIN): $(BOOTLOADER) Makefile
 	@mkdir -p $(dir $@)
 	$(ASM) $(BOOT_ASFLAGS) $< -o $@
 
@@ -181,9 +181,8 @@ $(KERNEL_BIN): $(OBJECTS) $(LINKER)
 
 $(BOOT_IMAGE): $(BOOT_BIN) $(KERNEL_BIN)
 	@mkdir -p $(dir $@)
-	@kernel_size=$$(stat -c %s $(KERNEL_BIN)); \
-	if [ $$kernel_size -gt $(KERNEL_MAX_BYTES) ]; then \
-		echo "Error: kernel.bin ($$kernel_size bytes) exceeds bootloader limit ($(KERNEL_MAX_BYTES) bytes / $(KERNEL_MAX_SECTORS) sectors)."; \
+	@if [ "$$(stat -c %s $(KERNEL_BIN))" -gt $(KERNEL_MAX_SIZE) ]; then \
+		echo "Error: kernel.bin exceeds $(KERNEL_MAX_SECTORS) Sectors!"; \
 		exit 1; \
 	fi
 	cat $^ > $@

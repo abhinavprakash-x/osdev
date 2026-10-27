@@ -6,6 +6,7 @@ Detailed descriptions live in the range files (`bugs_001-025.md`, `bugs_026-050.
 
 ## States
 
+- **UNCONFIRMED** — reported bug, not yet confirmed.
 - **OPEN** — confirmed bug, not fixed.
 - **IN PROGRESS** — currently being worked on.
 - **FIXED** — implementation has been changed, but final verification is not yet recorded.
@@ -41,8 +42,8 @@ Detailed descriptions live in the range files (`bugs_001-025.md`, `bugs_026-050.
 | BUG-023 | VERIFIED | Significant | Paging / PMM |
 | BUG-024 | VERIFIED | Significant | Paging / PMM |
 | BUG-025 | VERIFIED | Significant | PMM / E820 |
-| BUG-026 | OPEN | Significant | Bootloader / PMM / E820 |
-| BUG-027 | OPEN | Significant | Bootloader / E820 |
+| BUG-026 | VERIFIED | Significant | Bootloader / PMM / E820 |
+| BUG-027 | VERIFIED | Significant | Bootloader / E820 |
 | BUG-028 | VERIFIED | Significant | Scheduler / Timer |
 | BUG-029 | VERIFIED | Significant | Interrupts / User Mode |
 | BUG-030 | VERIFIED | Significant | Heap |
@@ -51,13 +52,13 @@ Detailed descriptions live in the range files (`bugs_001-025.md`, `bugs_026-050.
 | BUG-033 | VERIFIED | Significant | Shell / Calculator |
 | BUG-034 | VERIFIED | Significant | Shell / Timer |
 | BUG-035 | VERIFIED | Significant | PMM |
-| BUG-036 | OPEN | Significant | Bootloader |
+| BUG-036 | VERIFIED | Significant | Bootloader |
 | BUG-037 | VERIFIED | Build | Make |
 | BUG-038 | VERIFIED | Build / Test | Scheduler Tests |
 | BUG-039 | VERIFIED | Build / Test | Paging Tests |
 | BUG-040 | VERIFIED | Build / Test | User Test / Assembly |
 | BUG-041 | VERIFIED | Significant | Scheduler / Tasks |
-| BUG-042 | OPEN | Significant | PMM / E820 |
+| BUG-042 | UNCONFIRMED | Significant | PMM / E820 |
 | BUG-043 | VERIFIED | Critical | Paging |
 | BUG-044 | VERIFIED | Significant | Build / Test |
 | BUG-045 | VERIFIED | Significant | Paging / Scheduler |

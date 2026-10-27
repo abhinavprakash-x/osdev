@@ -196,6 +196,32 @@ static void test_pmm_e820_bounds_and_rounding(void)
     bool case4_tail_excluded = !pmm_is_usable_block((void*)0x00202000u);
     bool case4_sub_excluded  = !pmm_is_usable_block((void*)0x00300000u);
 
+    // --- Case 5 (BUG-026): Disabled ACPI entry (bit 0 == 0) must be ignored ---
+    *E820_COUNT_PTR = 1;
+    E820_ENTRIES_PTR[0].base_addr       = 0x00200000ULL;
+    E820_ENTRIES_PTR[0].region_length   = 0x00004000ULL; // 4 frames
+    E820_ENTRIES_PTR[0].region_type     = 1;
+    E820_ENTRIES_PTR[0].acpi_attributes = 0;             // Disabled!
+    pmm_init();
+    int case5_total = get_total_memory();
+
+    // --- Case 6 (BUG-042): Overlapping usable E820 entries (e.g. frames 0..5 and 3..8) ---
+    // Entry 0: 0x200000 .. 0x205000 (5 frames: 0x200000..0x204000)
+    // Entry 1: 0x203000 .. 0x208000 (5 frames: 0x203000..0x207000, overlaps 0x203000 & 0x204000)
+    // Total unique usable frames must be 8 (not 10).
+    *E820_COUNT_PTR = 2;
+    E820_ENTRIES_PTR[0].base_addr       = 0x00200000ULL;
+    E820_ENTRIES_PTR[0].region_length   = 0x00005000ULL;
+    E820_ENTRIES_PTR[0].region_type     = 1;
+    E820_ENTRIES_PTR[0].acpi_attributes = 1;
+
+    E820_ENTRIES_PTR[1].base_addr       = 0x00203000ULL;
+    E820_ENTRIES_PTR[1].region_length   = 0x00005000ULL;
+    E820_ENTRIES_PTR[1].region_type     = 1;
+    E820_ENTRIES_PTR[1].acpi_attributes = 1;
+    pmm_init();
+    int case6_total = get_total_memory();
+
     // Restore original E820 table and live PMM allocations before re-enabling interrupts
     *E820_COUNT_PTR = orig_e820_count;
     memcpy(E820_ENTRIES_PTR, orig_entries, orig_e820_count * sizeof(struct mem_map_entry));
@@ -204,6 +230,9 @@ static void test_pmm_e820_bounds_and_rounding(void)
 
     // FIX: Use AT&T syntax `pushfl` and `popfl` for GCC inline assembly
     __asm__ volatile ("push %0; popfl" : : "r"(eflags) : "memory", "cc");
+
+    test_assert_equal_int(0, case5_total, "e820 BUG-026(disabled ACPI entry ignored)");
+    test_assert_equal_int(8, case6_total, "e820 BUG-042(overlapping usable entries deduplicated)");
 
     test_assert_equal_int(0, case1_total, "e820 BUG-007(ignore region >= 4GB)");
     test_assert_equal_int(2, case2_total, "e820 BUG-007(clip region straddling 4GB)");

@@ -70,6 +70,8 @@ static int test_bit_usable(int bit)
 void pmm_init(void)
 {
     uint32_t entry_count = *(uint32_t*)E820_MEM_MAP_ADDR;
+    if (entry_count > E820_MAX_ENTRIES) entry_count = E820_MAX_ENTRIES;
+
     last_searched_idx = 0;
     total_blocks = 0;
     used_blocks = 0;
@@ -84,6 +86,7 @@ void pmm_init(void)
 
     for(uint32_t i = 0; i < entry_count; ++i)
     {
+        if((mmap[i].acpi_attributes & E820_ACPI_ENABLED) == 0) continue; // Ignore ACPI reserved memory
         if(mmap[i].region_type != E820_USABLE) continue; // Ignore non-usable memory
 
         uint64_t base = mmap[i].base_addr;
