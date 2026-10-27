@@ -68,7 +68,10 @@ uint32_t ticks_to_ms(uint32_t ticks)
     if (timer_freq == 0)
         return 0;
 
-    return (uint32_t)((uint64_t)ticks * 1000) / timer_freq;
+    uint32_t whole_seconds = ticks / timer_freq;
+    uint32_t remaining_ticks = ticks % timer_freq;
+
+    return whole_seconds * 1000u + (remaining_ticks * 1000u) / timer_freq;
 }
 
 uint32_t ms_to_ticks(uint32_t milliseconds)

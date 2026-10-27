@@ -136,12 +136,16 @@ static void test_scheduler_dead_reap_and_all_waiting(void)
         task_add(d2);
         task_add(d3);
 
+        uint32_t pid1 = d1->pid;
+        uint32_t pid2 = d2->pid;
+        uint32_t pid3 = d3->pid;
+
         yield();
         yield();
 
-        test_assert_true(!scheduler_pid_exists(d1->pid) &&
-                         !scheduler_pid_exists(d2->pid) &&
-                         !scheduler_pid_exists(d3->pid),
+        test_assert_true(!scheduler_pid_exists(pid1) &&
+                         !scheduler_pid_exists(pid2) &&
+                         !scheduler_pid_exists(pid3),
                          "scheduler BUG-014(consecutive dead tasks reaped safely)");
     }
 
