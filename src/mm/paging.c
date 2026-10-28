@@ -5,6 +5,7 @@
 
 #include "mm/paging.h"
 #include "mm/pmm.h"
+#include "mm/heap.h"
 #include "libc/mem.h"
 
 static uint32_t* kernel_page_directory = 0;
@@ -72,6 +73,14 @@ bool map_page(uint32_t virtual_addr, uint32_t physical_addr, uint32_t flags)
     // Reject mapping over the recursive region or reserved temporary slot
     if (virtual_addr >= 0xFFC00000u || virtual_addr == PAGING_TEMP_VADDR)
         return false;
+
+    // User-accessible pages must reside within [USER_SPACE_START, USER_SPACE_END]
+    // and may never overlap the kernel heap [HEAP_START, HEAP_MAX_ADDR).
+    if ((flags & PTE_USER) != 0)
+    {
+        if(virtual_addr < USER_SPACE_START || virtual_addr > USER_SPACE_END) return false;
+        if(virtual_addr >= HEAP_START && virtual_addr < HEAP_MAX_ADDR) return false;
+    }
 
     // BUG-023: Validate that the physical frame is usable and currently allocated in PMM
     if (!pmm_is_allocated_block((void*)physical_addr))
@@ -285,7 +294,10 @@ bool user_range_valid(uint32_t virtual_addr, uint32_t size)
     uint32_t end = virtual_addr + size - 1;
 
     if (end < virtual_addr) return false;
-    if (virtual_addr > USER_SPACE_END || end > USER_SPACE_END) return false;
+    if (virtual_addr < USER_SPACE_START || virtual_addr > USER_SPACE_END || end > USER_SPACE_END)
+        return false;
+    if (virtual_addr < HEAP_MAX_ADDR && end >= HEAP_START)
+        return false;
 
     uint32_t first_page = virtual_addr & 0xFFFFF000u;
     uint32_t last_page  = end & 0xFFFFF000u;
@@ -405,4 +417,93 @@ bool paging_is_mapped_range(uint32_t virtual_addr, uint32_t size, bool require_w
     }
 
     return true;
+}
+
+bool paging_alloc_pages(uint32_t* directory, uint32_t start_vaddr, uint32_t num_pages, uint32_t flags)
+{
+    if (directory == 0 || num_pages == 0) return false;
+    if ((start_vaddr & 0xFFFu) != 0) return false;
+
+    uint64_t total_bytes = (uint64_t)num_pages * PAGE_SIZE;
+    if (total_bytes > 0xFFFFFFFFULL || (start_vaddr + (uint32_t)(total_bytes - 1u)) < start_vaddr)
+        return false;
+
+    uint32_t eflags;
+    __asm__ volatile ("pushfl; pop %0; cli" : "=r"(eflags) : : "memory");
+
+    uint32_t allocated = 0;
+    for (uint32_t i = 0; i < num_pages; ++i)
+    {
+        uint32_t vaddr = start_vaddr + (i * PAGE_SIZE);
+        uint32_t phys = (uint32_t)pmm_alloc_block();
+        if (phys == 0)
+            break;
+
+        void* temp = paging_temp_map(phys);
+        memset(temp, 0, PAGE_SIZE);
+        paging_temp_unmap();
+
+        if (!paging_map_page(directory, vaddr, phys, flags | PTE_PRESENT))
+        {
+            pmm_free_block((void*)phys);
+            break;
+        }
+        allocated++;
+    }
+
+    if (allocated < num_pages)
+    {
+        if (allocated > 0)
+        {
+            paging_free_pages(directory, start_vaddr, allocated);
+        }
+        __asm__ volatile ("push %0; popfl" : : "r"(eflags) : "memory", "cc");
+        return false;
+    }
+
+    __asm__ volatile ("push %0; popfl" : : "r"(eflags) : "memory", "cc");
+    return true;
+}
+
+void paging_free_pages(uint32_t* directory, uint32_t start_vaddr, uint32_t num_pages)
+{
+    if (directory == 0 || num_pages == 0) return;
+    if ((start_vaddr & 0xFFFu) != 0) return;
+
+    uint32_t eflags;
+    __asm__ volatile ("pushfl; pop %0; cli" : "=r"(eflags) : : "memory");
+
+    uint32_t* old_directory = current_page_directory;
+    if (old_directory != directory) paging_switch_directory(directory);
+
+    for (uint32_t i = 0; i < num_pages; ++i)
+    {
+        uint32_t vaddr = start_vaddr + (i * PAGE_SIZE);
+        if (vaddr >= 0xFFC00000u) break;
+
+        uint32_t page_dir_idx   = (vaddr >> 22) & 0x3FFu;
+        uint32_t page_table_idx = (vaddr >> 12) & 0x3FFu;
+        uint32_t* v_page_dir    = (uint32_t*)0xFFFFF000u;
+
+        if ((v_page_dir[page_dir_idx] & PTE_PRESENT) == 0)
+            continue;
+
+        uint32_t* pt = (uint32_t*)(0xFFC00000u + (page_dir_idx * PAGE_SIZE));
+        uint32_t pte = pt[page_table_idx];
+        if ((pte & PTE_PRESENT) == 0)
+            continue;
+
+        uint32_t phys = pte & 0xFFFFF000u;
+        bool is_shared_flag = (pte & PTE_SHARED) != 0;
+
+        unmap_page(vaddr);
+
+        if (phys != 0 && !is_shared_flag)
+        {
+            pmm_free_block((void*)phys);
+        }
+    }
+
+    if (old_directory != directory) paging_switch_directory(old_directory);
+    __asm__ volatile ("push %0; popfl" : : "r"(eflags) : "memory", "cc");
 }

@@ -9,9 +9,10 @@
 #define PTE_SHARED  0x200u // OS-available bit 9: frame is borrowed/shared (do not free on teardown)
 
 // Architecture Constants
-#define PAGE_SIZE   4096u // 4KB pages
-#define PT_ENTRIES  1024u // 1024 entries per table/directory
-#define USER_SPACE_END 0xBFFFFFFFu
+#define PAGE_SIZE         4096u // 4KB pages
+#define PT_ENTRIES        1024u // 1024 entries per table/directory
+#define USER_SPACE_START  0x00400000u
+#define USER_SPACE_END    0xBFFFFFFFu
 #define PAGING_TEMP_VADDR 0x003FF000u
 
 extern void load_page_directory(uint32_t* dir);
@@ -34,3 +35,6 @@ bool paging_map_page(uint32_t* directory, uint32_t virtual_addr, uint32_t physic
 
 bool user_range_valid(uint32_t virtual_addr, uint32_t size);
 bool paging_is_mapped_range(uint32_t virtual_addr, uint32_t size, bool require_writable);
+
+bool paging_alloc_pages(uint32_t* directory, uint32_t start_vaddr, uint32_t num_pages, uint32_t flags);
+void paging_free_pages(uint32_t* directory, uint32_t start_vaddr, uint32_t num_pages);
