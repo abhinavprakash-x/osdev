@@ -265,6 +265,10 @@ static void test_paging_validation_and_ownership(void)
     pmm_free_block((void*)phys1);
     pmm_free_block((void*)phys2);
     test_assert_equal_int(used_before, get_used_memory(), "paging validation(PMM accounting restored)");
+
+    uint32_t cr0;
+    __asm__ volatile ("mov %%cr0, %0" : "=r"(cr0));
+    test_assert_true((cr0 & 0x00010000u) != 0, "paging (CR0.WP write-protect enabled)");
 }
 
 void test_paging_suite(void)

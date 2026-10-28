@@ -11,6 +11,7 @@
 #include "task/scheduler.h"
 #include "libc/mem.h"
 #include "libc/stdlib.h"
+#include "drivers/pit.h"
 
 extern const uint8_t user_test_start[];
 extern const uint32_t user_test_size;
@@ -65,6 +66,29 @@ void test_user_suite(void)
     }
 
     test_assert_equal_int(used_before, get_used_memory(), "user task(cleanup restores PMM frames)");
+
+    static const uint8_t crashing_user_code[4] = { 0xFA, 0xEB, 0xFE, 0x90 }; // cli; jmp $
+    task_t* crash_task = create_user_task("u_crash", crashing_user_code, sizeof(crashing_user_code),
+                                        USER_CODE_LOAD_ADDR, USER_STACK_TOP_ADDR);
+    test_assert_true(crash_task != 0, "user task BUG-049(create crashing user task)");
+    if (crash_task != 0)
+    {
+        uint32_t crash_pid = crash_task->pid;
+        task_add(crash_task);
+
+        uint32_t start_ticks = get_ticks();
+        uint32_t timeout = get_timer_freq();
+        if (timeout == 0) timeout = 100;
+
+        while (scheduler_pid_exists(crash_pid) && (get_ticks() - start_ticks) < timeout)
+        {
+            yield();
+        }
+        yield(); // Ensure reap_dead_tasks() frees the terminated task
+
+        test_assert_true(!scheduler_pid_exists(crash_pid), "user task BUG-049(crashing Ring 3 task terminated & reaped)");
+        test_assert_equal_int(used_before, get_used_memory(), "user task BUG-049(crashing task frames reclaimed)");
+    }
 }
 
 void launch_user_test(void)
