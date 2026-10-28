@@ -88,7 +88,7 @@ void isr_handler(registers_t *regs)
             }
 
             printf("Terminating faulting user task.\n");
-            task_exit();
+            task_exit_with_status(-(int32_t)(128u + regs->int_no));
             return;
         }
 

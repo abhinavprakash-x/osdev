@@ -251,9 +251,44 @@ static void test_pmm_e820_bounds_and_rounding(void)
     printf("PMM E820 tests complete.\n");
 }
 
+static void test_pmm_refcounting(void)
+{
+    printf("[PMM Frame Reference Counting]\n");
+
+    int used_before = get_used_memory();
+    void* frame = pmm_alloc_block();
+
+    test_assert_true(frame != 0, "pmm refcount(alloc block)");
+    if (frame == 0) return;
+
+    test_assert_equal_int(1, pmm_get_refcount(frame), "pmm refcount(initial refcount is 1)");
+    test_assert_equal_int(2, pmm_ref_block(frame), "pmm refcount(increment to 2)");
+    test_assert_equal_int(3, pmm_ref_block(frame), "pmm refcount(increment to 3)");
+    test_assert_equal_int(3, pmm_get_refcount(frame), "pmm refcount(query returns 3)");
+
+    // First free drops refcount 3 -> 2; frame remains allocated
+    pmm_free_block(frame);
+    test_assert_equal_int(2, pmm_get_refcount(frame), "pmm refcount(free drops 3 -> 2)");
+    test_assert_true(pmm_is_allocated_block(frame), "pmm refcount(still allocated at ref 2)");
+
+    // Second free drops refcount 2 -> 1; frame remains allocated
+    pmm_free_block(frame);
+    test_assert_equal_int(1, pmm_get_refcount(frame), "pmm refcount(free drops 2 -> 1)");
+    test_assert_true(pmm_is_allocated_block(frame), "pmm refcount(still allocated at ref 1)");
+
+    // Third free drops refcount 1 -> 0; frame is released to PMM
+    pmm_free_block(frame);
+    test_assert_equal_int(0, pmm_get_refcount(frame), "pmm refcount(final free drops to 0)");
+    test_assert_true(!pmm_is_allocated_block(frame), "pmm refcount(frame released at ref 0)");
+    test_assert_equal_int(used_before, get_used_memory(), "pmm refcount(PMM accounting restored)");
+
+    printf("PMM refcount tests complete.\n");
+}
+
 void test_pmm_suite(void)
 {
     test_pmm_basic();
     test_pmm_free_validation();
     test_pmm_e820_bounds_and_rounding();
+    test_pmm_refcounting();
 }

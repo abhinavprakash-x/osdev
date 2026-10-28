@@ -8,5 +8,6 @@
 #define SYS_YIELD   3
 #define SYS_SLEEP   4
 #define SYS_GETPID  5
+#define SYS_WAITPID 6
 
 void syscall_handler(registers_t *regs);

@@ -93,6 +93,7 @@ task_t* create_task(const char* name, void (*entry_point)(void))
 
     new_task->name = name;
     new_task->state = TASK_READY;
+    new_task->exit_status = 0;
 
     new_task->stack_allocation = stack_memory;
     new_task->kernel_stack_top = 0;
@@ -230,6 +231,7 @@ task_t* create_user_task(const char* name, const void* code, uint32_t code_size,
 
     new_task->name = name;
     new_task->state = TASK_READY;
+    new_task->exit_status = 0;
 
     new_task->stack_allocation = stack_memory;
     new_task->page_directory = page_directory;

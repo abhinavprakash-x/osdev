@@ -16,6 +16,7 @@ typedef struct task{
     uint32_t pid;
     const char* name;
     task_state_t state;
+    int32_t exit_status;
 
     void* stack_allocation;
     uint32_t kernel_stack_top;

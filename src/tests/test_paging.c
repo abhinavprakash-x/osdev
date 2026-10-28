@@ -271,6 +271,59 @@ static void test_paging_validation_and_ownership(void)
     test_assert_true((cr0 & 0x00010000u) != 0, "paging (CR0.WP write-protect enabled)");
 }
 
+static void test_paging_vmm_helpers_and_policy(void)
+{
+    printf("[VMM Helpers & Address-Space Policy]\n");
+
+    int used_before = get_used_memory();
+    uint32_t* dir_a = paging_create_address_space();
+    uint32_t* dir_b = paging_create_address_space();
+
+    test_assert_true(dir_a != 0 && dir_b != 0, "create 2 user address spaces");
+    if (dir_a == 0 || dir_b == 0)
+    {
+        if (dir_a) paging_destroy_address_space(dir_a);
+        if (dir_b) paging_destroy_address_space(dir_b);
+        return;
+    }
+
+    // 1. User/Kernel policy separation: reject PTE_USER in kernel heap range (0x10000000)
+    uint32_t test_phys = (uint32_t)pmm_alloc_block();
+    test_assert_true(test_phys != 0, "alloc policy test frame");
+    if (test_phys != 0)
+    {
+        test_assert_true(!paging_map_page(dir_a, 0x15000000u, test_phys, PTE_PRESENT | PTE_RW | PTE_USER),
+                         "reject PTE_USER inside kernel heap region");
+        test_assert_true(!paging_map_page(dir_a, 0xC0000000u, test_phys, PTE_PRESENT | PTE_RW | PTE_USER),
+                         "reject PTE_USER above USER_SPACE_END");
+
+        // 2. Refcounted frame sharing across two independent user processes (dir_a and dir_b)
+        pmm_ref_block((void*)test_phys); // refcount = 2
+        test_assert_true(paging_map_page(dir_a, 0x00400000u, test_phys, PTE_PRESENT | PTE_USER),
+                         "map refcounted frame in dir_a");
+        test_assert_true(paging_map_page(dir_b, 0x00400000u, test_phys, PTE_PRESENT | PTE_USER),
+                         "map refcounted frame in dir_b");
+    }
+
+    // 3. Multi-page VMM allocation & free helper in dir_a
+    test_assert_true(paging_alloc_pages(dir_a, 0x00800000u, 3, PTE_RW | PTE_USER),
+                     "paging_alloc_pages 3 pages");
+    paging_free_pages(dir_a, 0x00800000u, 3);
+
+    // Destroy dir_a first: test_phys refcount drops 2 -> 1 (must stay allocated for dir_b!)
+    paging_destroy_address_space(dir_a);
+    test_assert_equal_int(1, pmm_get_refcount((void*)test_phys),
+                          "shared frame survives dir_a teardown at ref 1");
+
+    // Destroy dir_b second: test_phys refcount drops 1 -> 0 (automatically freed!)
+    paging_destroy_address_space(dir_b);
+    test_assert_equal_int(0, pmm_get_refcount((void*)test_phys),
+                          "shared frame freed after dir_b teardown");
+
+    test_assert_equal_int(used_before, get_used_memory(), "PMM usage restored");
+    printf("VMM helper & policy tests complete.\n");
+}
+
 void test_paging_suite(void)
 {
     test_paging_basic();
@@ -278,4 +331,5 @@ void test_paging_suite(void)
     test_user_mapping_shared_kernel_pde();
     test_page_table_reclamation();
     test_paging_validation_and_ownership();
+    test_paging_vmm_helpers_and_policy();
 }

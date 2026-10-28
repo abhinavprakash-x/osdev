@@ -5,6 +5,36 @@
 #include "cpu/tss.h"
 #include "mm/paging.h"
 
+#define EXIT_HISTORY_SIZE 64
+
+typedef struct {
+    uint32_t pid;
+    int32_t status;
+    bool valid;
+} task_exit_record_t;
+
+static task_exit_record_t exit_history[EXIT_HISTORY_SIZE];
+static uint32_t exit_history_head = 0;
+
+static void record_task_exit(uint32_t pid, int32_t status)
+{
+    if (pid == 0) return;
+
+    for (uint32_t i = 0; i < EXIT_HISTORY_SIZE; ++i)
+    {
+        if (exit_history[i].valid && exit_history[i].pid == pid)
+        {
+            exit_history[i].status = status;
+            return;
+        }
+    }
+
+    exit_history[exit_history_head].pid = pid;
+    exit_history[exit_history_head].status = status;
+    exit_history[exit_history_head].valid = true;
+    exit_history_head = (exit_history_head + 1u) % EXIT_HISTORY_SIZE;
+}
+
 task_t* current_task = 0;
 static volatile int scheduler_idling = 0;
 
@@ -50,6 +80,8 @@ void scheduler_init(void)
     main_task->pid = 0;
     main_task->name = "kmain";
     main_task->state = TASK_RUNNING;
+    main_task->exit_status = 0;
+
     main_task->stack_allocation = 0;
     main_task->kernel_stack_top = 0;
     main_task->page_directory = paging_get_kernel_directory();
@@ -93,6 +125,8 @@ static void reap_dead_tasks(task_t* active_task)
             task_t* dead = curr;
             prev->next = curr->next;
             curr = prev->next;
+
+            record_task_exit(dead->pid, dead->exit_status);
             destroy_task(dead);
         }
         else
@@ -179,9 +213,12 @@ void yield(void)
     schedule();
 }
 
-void task_exit(void)
+void task_exit_with_status(int32_t status)
 {
-    if (current_task != 0) {
+    if (current_task != 0)
+    {
+        current_task->exit_status = status;
+        record_task_exit(current_task->pid, status);
         current_task->state = TASK_DEAD;
     }
 
@@ -191,6 +228,49 @@ void task_exit(void)
     {
         __asm__ volatile("cli; hlt");
     }
+}
+
+void task_exit(void)
+{
+    task_exit_with_status(0);
+}
+
+bool task_get_exit_status(uint32_t pid, int32_t* out_status)
+{
+    if (pid == 0) return false;
+
+    uint32_t eflags;
+    __asm__ volatile ("pushfl; pop %0; cli" : "=r"(eflags) : : "memory");
+
+    bool found = false;
+    for (uint32_t i = 0; i < EXIT_HISTORY_SIZE; ++i)
+    {
+        if (exit_history[i].valid && exit_history[i].pid == pid)
+        {
+            if (out_status != 0)
+                *out_status = exit_history[i].status;
+            found = true;
+            break;
+        }
+    }
+
+    __asm__ volatile ("push %0; popfl" : : "r"(eflags) : "memory", "cc");
+    return found;
+}
+
+bool task_wait_pid(uint32_t pid, int32_t* out_status)
+{
+    if (pid == 0 || current_task == 0 || pid == current_task->pid)
+        return false;
+
+    while (scheduler_pid_exists(pid))
+    {
+        yield();
+    }
+
+    // One additional yield ensures reap_dead_tasks() has finalized cleanup
+    yield();
+    return task_get_exit_status(pid, out_status);
 }
 
 void task_sleep(uint32_t milliseconds)

@@ -51,6 +51,25 @@ void syscall_handler(registers_t *regs)
             task_exit();
             break;
 
+        case SYS_WAITPID:
+            int32_t status;
+            if (!task_wait_pid(regs->ebx, &status)) regs->eax = (uint32_t)-1;
+            else
+            {
+                if(regs->ecx != 0)
+                {
+                    if (!user_range_valid(regs->ecx, sizeof(int32_t)) ||
+                        !paging_is_mapped_range(regs->ecx, sizeof(int32_t), true))
+                    {
+                        regs->eax = (uint32_t)-1;
+                        break;
+                    }
+                    *(int32_t*)regs->ecx = status;
+                }
+                regs->eax = (uint32_t)status;
+            }
+            break;
+
         default:
             regs->eax = (uint32_t)-1;
             break;
