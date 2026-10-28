@@ -23,6 +23,15 @@ static int used_blocks = 0;
 static int last_searched_idx = 0;
 static int total_blocks = 0;
 
+#define PMM_MAX_SHARED_FRAMES 256
+
+typedef struct {
+    uint32_t frame;
+    uint32_t extra_refs;
+} pmm_shared_ref_t;
+
+static pmm_shared_ref_t shared_refs[PMM_MAX_SHARED_FRAMES];
+
 static void set_bit(int bit)
 {
     int idx = bit / 32;
@@ -80,6 +89,7 @@ void pmm_init(void)
     // E820 usable regions are explicitly added to the PMM pool.
     memset(mem_map, 0xFF, sizeof(mem_map));
     memset(usable_mem_map, 0x00, sizeof(usable_mem_map));
+    memset(shared_refs, 0x00, sizeof(shared_refs));
 
     struct mem_map_entry* mmap = (struct mem_map_entry*)(E820_MEM_MAP_ADDR + 4);
     const uint64_t limit_4gb = 0x100000000ULL;
@@ -174,6 +184,20 @@ void pmm_free_block(void* physical_addr)
 
     if (!test_bit_usable((int)bit)) return; // Only free usable blocks
     if (!test_bit((int)bit)) return;
+
+    // If frame has additional references, decrement refcount without freeing
+    for (int i = 0; i < PMM_MAX_SHARED_FRAMES; ++i)
+    {
+        if (shared_refs[i].extra_refs > 0 && shared_refs[i].frame == bit)
+        {
+            shared_refs[i].extra_refs--;
+            if (shared_refs[i].extra_refs == 0)
+            {
+                shared_refs[i].frame = 0;
+            }
+            return;
+        }
+    }
 
     clear_bit((int)bit);
     used_blocks--;
@@ -304,4 +328,49 @@ void pmm_restore_allocated_ranges(const pmm_alloc_range_t* buffer, uint32_t rang
             }
         }
     }
+}
+
+int pmm_ref_block(void* physical_addr)
+{
+    if (!pmm_is_allocated_block(physical_addr))
+        return 0;
+
+    uint32_t frame = (uint32_t)physical_addr / PMM_BLOCK_SIZE;
+    int free_slot = -1;
+
+    for (int i = 0; i < PMM_MAX_SHARED_FRAMES; ++i)
+    {
+        if (shared_refs[i].extra_refs > 0 && shared_refs[i].frame == frame)
+        {
+            shared_refs[i].extra_refs++;
+            return (int)(1u + shared_refs[i].extra_refs);
+        }
+        if (shared_refs[i].extra_refs == 0 && free_slot == -1)
+        {
+            free_slot = i;
+        }
+    }
+
+    if (free_slot == -1)
+        return 0; // Shared reference table full
+
+    shared_refs[free_slot].frame = frame;
+    shared_refs[free_slot].extra_refs = 1;
+    return 2;
+}
+
+int pmm_get_refcount(void* physical_addr)
+{
+    if (!pmm_is_allocated_block(physical_addr))
+        return 0;
+
+    uint32_t frame = (uint32_t)physical_addr / PMM_BLOCK_SIZE;
+    for (int i = 0; i < PMM_MAX_SHARED_FRAMES; ++i)
+    {
+        if (shared_refs[i].extra_refs > 0 && shared_refs[i].frame == frame)
+        {
+            return (int)(1u + shared_refs[i].extra_refs);
+        }
+    }
+    return 1;
 }

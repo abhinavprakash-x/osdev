@@ -29,5 +29,8 @@ int get_free_memory(void);
 bool pmm_is_usable_block(void *physical_addr);
 bool pmm_is_allocated_block(void *physical_addr);
 
+int pmm_ref_block(void* physical_addr);
+int pmm_get_refcount(void* physical_addr);
+
 uint32_t pmm_save_allocated_ranges(pmm_alloc_range_t* buffer, uint32_t max_ranges);
 void pmm_restore_allocated_ranges(const pmm_alloc_range_t* buffer, uint32_t range_count);
