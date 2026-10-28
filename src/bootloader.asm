@@ -31,11 +31,45 @@ start:
     ; ----------------------------
     ; LOAD KERNEL USING LBA
     ; ----------------------------
-    mov ah, 0x42           ; BIOS Extended Read function
-    mov dl, [boot_drive]   ; Drive number
-    mov si, DAP            ; Point SI to our Disk Address Packet
+    mov cx, KERNEL_MAX_SECTORS  ; Total Sectors Left
+
+.read_loop:
+    cmp cx, 0
+    je .read_done
+
+    mov ax, cx
+    cmp ax, 64          ; Read 64 Sectors (32 KiB) per call
+    jbe .do_read
+    mov ax, 64
+
+.do_read:
+    mov [DAP_sectors], ax
+    push cx             ; Save Remaining Sector Count
+    push ax             ; Save Chunk Sector Count
+
+    mov ah, 0x42        ; BIOS Extended Read function
+    mov dl, [boot_drive]
+    mov si, DAP         ; Point SI to our Disk Address Packet
     int 0x13
-    jc disk_error          ; If carry flag is set, error!
+    jc disk_error       ; If Carry flag is Set Error
+
+    pop ax              ; Restore Chunk Sector Count
+    pop cx              ; Restore Remaining Sector Count
+
+    ; Advance 64-bit LBA by Chunk Size
+    movzx edx, ax
+    add dword [DAP_lba], edx
+    add dword [DAP_lba + 4], 0
+
+    ; Advance destination segment by (chunk * 32) paragraphs (512 / 16 = 32)
+    mov dx, ax
+    shl dx, 5
+    add word [DAP_segment], dx
+
+    sub cx, ax
+    jmp .read_loop
+
+.read_done:
 
     ; -----------------------------
     ; Enable & Verify A20 Line
@@ -235,10 +269,15 @@ align 4
 DAP:
     db 0x10               ; Size of this packet (always 16 bytes)
     db 0                  ; Always 0
-    dw KERNEL_MAX_SECTORS ; Number of sectors to read
-    dw 0x8000             ; Memory Offset to load to
-    dw 0x0000             ; Memory Segment to load to (0:0x8000)
-    dq 1                  ; LBA address to start reading from (Sector 1)
+DAP_sectors:
+    dw 0                  ; Number of sectors in current chunk (set by loop)
+DAP_offset:
+    dw 0x0000             ; Memory Offset (0x0000)
+DAP_segment:
+    dw 0x0800             ; Memory Segment (0x0800:0x0000 = physical 0x8000)
+DAP_lba:
+    dd 1                  ; LBA low 32 bits (start at Sector 1)
+    dd 0                  ; LBA high 32 bits
 
 times 510 - ($ - $$) db 0
 dw 0xaa55
