@@ -29,7 +29,7 @@ void heap_init(void)
     heap_end_vaddr = HEAP_START + PAGE_SIZE;
 }
 
-void* kmalloc(size_t size)
+static void* kmalloc_unlocked(size_t size)
 {
     if (size == 0 || size > (HEAP_MAX_SIZE - sizeof(heap_block_t) - PAGE_SIZE))
         return 0;
@@ -37,9 +37,9 @@ void* kmalloc(size_t size)
 
     heap_block_t* ptr = head;
     heap_block_t* last_block = 0;
-    while(ptr != 0)
+    while (ptr != 0)
     {
-        if(ptr->is_free && ptr->size >= size)
+        if (ptr->is_free && ptr->size >= size)
         {
             if (ptr->size >= size + sizeof(heap_block_t) + 8u)
             {
@@ -75,12 +75,11 @@ void* kmalloc(size_t size)
     for (size_t i = 0; i < pages_needed; i++) {
         uint32_t physical_new_page = (uint32_t)pmm_alloc_block();
 
-        if(physical_new_page == 0) {
-            // Rollback any pages that were allocated
+        if (physical_new_page == 0) {
             for (size_t j = 0; j < pages_allocated; j++)
             {
                 uint32_t rollback_vaddr = block_start_vaddr + (j * PAGE_SIZE);
-                uint32_t rollback_phys = get_physical_addr(rollback_vaddr) & 0xFFFFF000;
+                uint32_t rollback_phys = get_physical_addr(rollback_vaddr) & 0xFFFFF000u;
                 unmap_page(rollback_vaddr);
 
                 if (rollback_phys != 0)
@@ -96,7 +95,7 @@ void* kmalloc(size_t size)
             for (size_t j = 0; j < pages_allocated; j++)
             {
                 uint32_t rollback_vaddr = block_start_vaddr + (j * PAGE_SIZE);
-                uint32_t rollback_phys = get_physical_addr(rollback_vaddr) & 0xFFFFF000;
+                uint32_t rollback_phys = get_physical_addr(rollback_vaddr) & 0xFFFFF000u;
                 unmap_page(rollback_vaddr);
                 if (rollback_phys != 0)
                 {
@@ -117,17 +116,28 @@ void* kmalloc(size_t size)
     new_block->is_free = 1;
     new_block->next = 0;
 
-    if(last_block != 0) last_block->next = new_block;
+    if (last_block != 0) last_block->next = new_block;
 
-    // Coalesce in case the previous tail block was also free
-    // before allocating from the newly extended space
     if (last_block != 0 && last_block->is_free)
     {
         last_block->size += new_block->size + sizeof(heap_block_t);
         last_block->next = new_block->next;
     }
 
-    return kmalloc(size);
+    return kmalloc_unlocked(size);
+}
+
+void* kmalloc(size_t size)
+{
+    // BUG-047: Disable interrupts so timer preemption / reap_dead_tasks()
+    // cannot concurrently mutate the heap list.
+    uint32_t eflags;
+    __asm__ volatile ("pushfl; pop %0; cli" : "=r"(eflags) : : "memory");
+
+    void* res = kmalloc_unlocked(size);
+
+    __asm__ volatile ("push %0; popfl" : : "r"(eflags) : "memory", "cc");
+    return res;
 }
 
 static void coalesce_heap(void)
@@ -153,27 +163,34 @@ void kfree(void* ptr)
     if (ptr == 0) return;
     uint32_t addr = (uint32_t)ptr;
 
-    // BUG-030: Validate pointer range and alignment before touching metadata
-    if(addr < (HEAP_START + sizeof(heap_block_t)) || addr >= heap_end_vaddr) return;
-    if((addr % 8u) != 0) return;
+    if ((addr % 8u) != 0) return;
 
-    heap_block_t* target = (heap_block_t*)((uint8_t*)ptr - sizeof(heap_block_t));
+    // BUG-047: Guard heap free & coalescing against timer ISR preemption
+    uint32_t eflags;
+    __asm__ volatile ("pushfl; pop %0; cli" : "=r"(eflags) : : "memory");
 
-    // Verify `target` is an actual allocated block in the heap list
-    heap_block_t* curr = head;
-    while (curr != 0)
+    // BUG-030: Validate pointer range before touching metadata
+    if (addr >= (HEAP_START + sizeof(heap_block_t)) && addr < heap_end_vaddr)
     {
-        if (curr == target)
-        {
-            if (curr->magic != HEAP_MAGIC || curr->is_free)
-                return; // Reject corrupted or already-free block
+        heap_block_t* target = (heap_block_t*)((uint8_t*)ptr - sizeof(heap_block_t));
 
-            curr->is_free = 1;
-            coalesce_heap();
-            return;
+        heap_block_t* curr = head;
+        while (curr != 0)
+        {
+            if (curr == target)
+            {
+                if (curr->magic == HEAP_MAGIC && !curr->is_free)
+                {
+                    curr->is_free = 1;
+                    coalesce_heap();
+                }
+                break;
+            }
+            curr = curr->next;
         }
-        curr = curr->next;
     }
+
+    __asm__ volatile ("push %0; popfl" : : "r"(eflags) : "memory", "cc");
 }
 
 bool heap_is_payload_range(uint32_t addr, size_t size)
@@ -182,24 +199,31 @@ bool heap_is_payload_range(uint32_t addr, size_t size)
 
     uint32_t end = addr + (uint32_t)size - 1u;
     if (end < addr) return false;
-    if (addr < (HEAP_START + sizeof(heap_block_t)) || end >= heap_end_vaddr)
-        return false;
 
-    heap_block_t* curr = head;
-    while (curr != 0)
+    uint32_t eflags;
+    __asm__ volatile ("pushfl; pop %0; cli" : "=r"(eflags) : : "memory");
+
+    bool valid = false;
+    if (addr >= (HEAP_START + sizeof(heap_block_t)) && end < heap_end_vaddr)
     {
-        if (curr->magic != HEAP_MAGIC)
-            return false;
-
-        uint32_t payload_start = (uint32_t)((uint8_t*)curr + sizeof(heap_block_t));
-        uint32_t payload_end   = payload_start + (uint32_t)curr->size - 1u;
-
-        if (addr >= payload_start && end <= payload_end)
+        heap_block_t* curr = head;
+        while (curr != 0)
         {
-            return (curr->is_free == 0);
+            if (curr->magic != HEAP_MAGIC)
+                break;
+
+            uint32_t payload_start = (uint32_t)((uint8_t*)curr + sizeof(heap_block_t));
+            uint32_t payload_end   = payload_start + (uint32_t)curr->size - 1u;
+
+            if (addr >= payload_start && end <= payload_end)
+            {
+                valid = (curr->is_free == 0);
+                break;
+            }
+            curr = curr->next;
         }
-        curr = curr->next;
     }
 
-    return false;
+    __asm__ volatile ("push %0; popfl" : : "r"(eflags) : "memory", "cc");
+    return valid;
 }

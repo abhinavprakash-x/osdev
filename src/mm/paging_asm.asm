@@ -19,7 +19,7 @@ enable_paging:
     push ebp
     mov ebp, esp
     mov eax, cr0
-    or eax, 0x80000000 ; Set the PG bit (Bit 31)
+    or eax, 0x80010000 ; Set PG (Bit 31) + WP (Bit 16: Ring 0 write protect)
     mov cr0, eax       ; PAGING IS NOW ON!
     mov esp, ebp
     pop ebp
