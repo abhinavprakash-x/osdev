@@ -59,7 +59,7 @@ start:
     ; Advance 64-bit LBA by Chunk Size
     movzx edx, ax
     add dword [DAP_lba], edx
-    add dword [DAP_lba + 4], 0
+    adc dword [DAP_lba + 4], 0
 
     ; Advance destination segment by (chunk * 32) paragraphs (512 / 16 = 32)
     mov dx, ax

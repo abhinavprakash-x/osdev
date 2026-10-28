@@ -88,6 +88,32 @@ void test_user_suite(void)
 
         test_assert_true(!scheduler_pid_exists(crash_pid), "user task BUG-049(crashing Ring 3 task terminated & reaped)");
         test_assert_equal_int(used_before, get_used_memory(), "user task BUG-049(crashing task frames reclaimed)");
+
+        int32_t crash_status = 0;
+        test_assert_true(task_get_exit_status(crash_pid, &crash_status) && crash_status == -141,
+                         "user task Milestone3(crash exit status recorded as -141)");
+    }
+
+    // Verify Ring 3 SYS_EXIT records exit status from EBX and task_wait_pid() retrieves it
+    // Machine code: mov ebx, 77 (BB 4D 00 00 00); mov eax, 2 (B8 02 00 00 00); int 0x80 (CD 80)
+    static const uint8_t exit77_user_code[12] = {
+        0xBB, 0x4D, 0x00, 0x00, 0x00,
+        0xB8, 0x02, 0x00, 0x00, 0x00,
+        0xCD, 0x80
+    };
+    task_t* exit_task = create_user_task("u_exit77", exit77_user_code, sizeof(exit77_user_code),
+                                         USER_CODE_LOAD_ADDR, USER_STACK_TOP_ADDR);
+    test_assert_true(exit_task != 0, "user task Milestone3(create exit77 user task)");
+    if (exit_task != 0)
+    {
+        uint32_t exit_pid = exit_task->pid;
+        int32_t status = 0;
+        task_add(exit_task);
+
+        bool waited = task_wait_pid(exit_pid, &status);
+        test_assert_true(waited, "user task Milestone3(task_wait_pid succeeded)");
+        test_assert_equal_int(77, (int)status, "user task Milestone3(SYS_EXIT status 77 retrieved)");
+        test_assert_equal_int(used_before, get_used_memory(), "user task Milestone3(PMM frames restored)");
     }
 }
 

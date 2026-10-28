@@ -48,11 +48,12 @@ void syscall_handler(registers_t *regs)
             break;
 
         case SYS_EXIT:
-            task_exit();
+            task_exit_with_status((int32_t)regs->ebx);
             break;
 
         case SYS_WAITPID:
-            int32_t status;
+        {
+            int32_t status = 0;
             if (!task_wait_pid(regs->ebx, &status)) regs->eax = (uint32_t)-1;
             else
             {
@@ -69,6 +70,7 @@ void syscall_handler(registers_t *regs)
                 regs->eax = (uint32_t)status;
             }
             break;
+        }
 
         default:
             regs->eax = (uint32_t)-1;
