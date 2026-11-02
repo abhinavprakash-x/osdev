@@ -33,3 +33,4 @@ void destroy_task(task_t* task);
 
 uint32_t task_get_next_pid(void);
 void task_set_next_pid(uint32_t next);
+uint32_t allocate_pid(void);

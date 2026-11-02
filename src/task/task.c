@@ -8,7 +8,7 @@
 extern void enter_usermode(uint32_t user_eip, uint32_t user_esp);
 static uint32_t next_pid = 1;
 
-static uint32_t allocate_pid(void)
+uint32_t allocate_pid(void)
 {
     for (uint32_t attempts = 0; attempts < 0xFFFFFFFFu; ++attempts)
     {
