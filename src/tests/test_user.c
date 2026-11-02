@@ -12,6 +12,9 @@
 #include "libc/mem.h"
 #include "libc/stdlib.h"
 #include "drivers/pit.h"
+#include "task/elf.h"
+
+static void test_elf_task(void);
 
 extern const uint8_t user_test_start[];
 extern const uint32_t user_test_size;
@@ -115,6 +118,52 @@ void test_user_suite(void)
         test_assert_equal_int(77, (int)status, "user task Milestone3(SYS_EXIT status 77 retrieved)");
         test_assert_equal_int(used_before, get_used_memory(), "user task Milestone3(PMM frames restored)");
     }
+
+    printf("[Elf Tasks and Loading]\n");
+    test_elf_task();
+    printf("[ OK ] Elf Testing Complete");
+}
+
+static void test_elf_task(void)
+{
+    void* image = "";
+    test_assert_true(!elf_validate(image, 0), "empty Elf32 validation");
+
+    struct { Elf32_Ehdr ehdr; Elf32_Phdr phdr; } __attribute__((packed)) img;
+    img.ehdr.e_ident[0] = 0x7F;
+    img.ehdr.e_ident[1] = 'E';
+    img.ehdr.e_ident[2] = 'L';
+    img.ehdr.e_ident[3] = 'F';
+    img.ehdr.e_ident[4] = ELFCLASS32;
+    img.ehdr.e_ident[5] = ELFDATA2LSB;
+    img.ehdr.e_ident[6] = 1;
+
+    img.ehdr.e_type = ET_EXEC;
+    img.ehdr.e_machine = EM_386;
+    img.ehdr.e_version = 1;
+    img.ehdr.e_entry = 0x00400000u;
+
+    img.ehdr.e_phoff = sizeof(Elf32_Ehdr);
+    img.ehdr.e_ehsize = sizeof(Elf32_Ehdr);
+    img.ehdr.e_phentsize = sizeof(Elf32_Phdr);
+    img.ehdr.e_phnum = 1;
+
+    img.phdr.p_type = PT_LOAD;
+    img.phdr.p_offset = 0;
+    img.phdr.p_vaddr = 0x00400000u;
+    img.phdr.p_filesz = sizeof(img);
+    img.phdr.p_memsz = sizeof(img);
+    img.phdr.p_flags = PF_R | PF_X;
+
+    test_assert_true(elf_validate(&img, sizeof(img)), "Correct Elf32 Binary Validation");
+
+    img.ehdr.e_ident[0] = 0x00;
+    test_assert_true(!elf_validate(&img, sizeof(img)), "Bad Elf32 Magic Validation");
+    img.ehdr.e_ident[0] = 0x7F;
+
+    img.ehdr.e_machine = 62;
+    test_assert_true(!elf_validate(&img, sizeof(img)), "Wrong Architecture");
+    img.ehdr.e_machine = EM_386;
 }
 
 void launch_user_test(void)

@@ -26,7 +26,7 @@ BOOT_BIN    := $(BUILD_DIR)/bootloader.bin
 KERNEL_BIN  := $(BUILD_DIR)/kernel.bin
 BOOT_IMAGE  := $(BUILD_DIR)/boot.img
 
-KERNEL_MAX_SECTORS := 100
+KERNEL_MAX_SECTORS := 150
 KERNEL_MAX_SIZE    := $(shell expr $(KERNEL_MAX_SECTORS) \* 512)
 
 

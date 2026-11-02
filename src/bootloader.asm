@@ -5,7 +5,7 @@ E820_MAX_ENTRIES equ 128
 SMAP_MAGIC       equ 0x534d4150
 
 %ifndef KERNEL_MAX_SECTORS
-    %define KERNEL_MAX_SECTORS 100
+    %define KERNEL_MAX_SECTORS 150
 %endif
 
 start:
