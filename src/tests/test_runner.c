@@ -81,6 +81,7 @@ void test_all(void)
     test_memory();
     test_scheduler();
     test_user_suite();
+    test_fs();
 
     uint32_t end = get_ticks();
     int passed = test_get_passed();

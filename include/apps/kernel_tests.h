@@ -8,3 +8,4 @@ void test_memory(void);
 void test_scheduler(void);
 
 void launch_user_test(void);
+void test_fs(void);
