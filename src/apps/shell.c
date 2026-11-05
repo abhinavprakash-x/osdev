@@ -313,17 +313,23 @@ void execute_command(void)
         if (*filename == '\0') printf("Error: No filename provided.\n");
         else
         {
+            const fs_entry_t* entry = fs_find(filename);
             void* elf_buffer = 0;
             uint32_t elf_size = 0;
 
-            if(fs_read_file(filename, &elf_buffer, &elf_size))
+            if (entry != 0 && fs_read_file(filename, &elf_buffer, &elf_size))
             {
-                printf("Executing ELF file: %s (Size: %d bytes)\n", filename, elf_size);
-                task_t* task = create_user_task_elf(filename, elf_buffer, elf_size);
+                task_t* task = create_user_task_elf(entry->name, elf_buffer, elf_size);
                 kfree(elf_buffer);
-                task_add(task);
+
+                if(task == 0) printf("Error: '%s' is not a valid ELF32 executable.\n", filename);
+                else
+                {
+                    task_add(task);
+                    printf("[ OK ] Launched '%s' (PID %d, %d bytes)\n", entry->name, task->pid, elf_size);
+                }
             }
-            else printf("Error: ELF file '%s' not found or could not be read.\n", filename);
+            else printf("Error: File '%s' not found or could not be read.\n", filename);
         }
     }
     else

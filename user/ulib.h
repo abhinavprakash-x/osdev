@@ -1,15 +1,23 @@
 #pragma once
-#include <stdlib.h>
 #include <stdint.h>
+#include <stddef.h>
 
-static inline int32_t syscall(uint32_t num, uint32_t arg1, uint32_t arg2)
-{
-    int32_t ret;
-    __asm__ volatile (
-        "int $0x80"
-        : "=a"(ret)
-        : "a"(num), "b"(arg1), "c"(arg2)
-        : "memory"
-    );
-    return ret;
-}
+#define SYS_TEST    0
+#define SYS_WRITE   1
+#define SYS_EXIT    2
+#define SYS_YIELD   3
+#define SYS_SLEEP   4
+#define SYS_GETPID  5
+#define SYS_WAITPID 6
+
+int32_t sys_test(void);
+int32_t sys_write(const char* buf, uint32_t len);
+void    sys_exit(int32_t status) __attribute__((noreturn));
+int32_t sys_yield(void);
+int32_t sys_sleep(uint32_t ms);
+uint32_t sys_getpid(void);
+int32_t sys_waitpid(uint32_t pid, int32_t* out_status);
+
+size_t strlen(const char* s);
+void   uprint(const char* s);
+void   uprintf(const char* format, ...);

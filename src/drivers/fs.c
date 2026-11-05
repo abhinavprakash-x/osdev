@@ -12,6 +12,7 @@ bool fs_init(void)
     fs_mounted = false;
     if(!ata_read_sectors(FS_SUPERBLOCK_LBA, 1, (uint8_t*)&superblock)) return false;
     if(superblock.magic != FS_MAGIC) return false;
+    if(superblock.file_count > FS_MAX_FILES) return false;
     fs_mounted = true;
     return true;
 }
@@ -66,6 +67,6 @@ void fs_list_files(void)
     for(uint32_t i = 0; i < superblock.file_count; i++)
     {
         const fs_entry_t* entry = &superblock.entries[i];
-        printf("%s, %u bytes, %u\n", entry->name, entry->size, entry->start_lba);
+        printf("%s\t\t%d\t\t%d\n", entry->name, (int)entry->size, (int)entry->start_lba);
     }
 }
