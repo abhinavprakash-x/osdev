@@ -185,6 +185,7 @@ $(BOOT_IMAGE): $(BOOT_BIN) $(KERNEL_BIN)
 		echo "Error: kernel.bin exceeds $(KERNEL_MAX_SECTORS) Sectors!"; \
 		exit 1; \
 	fi
+	truncate -s $(KERNEL_MAX_SIZE) $(KERNEL_BIN)
 	cat $^ > $@
 	dd if=/dev/zero bs=512 count=$(KERNEL_MAX_SECTORS) >> $@
 
