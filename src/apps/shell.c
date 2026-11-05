@@ -60,7 +60,10 @@ void execute_command(void)
         printf("\n  System\n");
         printf("    cpuinfo              Display CPU information\n");
         printf("    meminfo              Display physical memory usage\n");
-        printf("    tasks                Display active tasks\n");
+        printf("    ps                   Display active tasks\n");
+        printf("    ls                   Display all files\n");
+        printf("    cat [file]           Display content of file\n");
+        printf("    run [file]           Executes elf task\n");
         printf("    test [suite]         Run kernel tests\n");
 
         printf("\n  Memory\n");
@@ -273,7 +276,7 @@ void execute_command(void)
         // Send command 0xFE to the Keyboard Controller port 0x64
         __asm__ volatile ("outb %1, %0" : : "dN" ((uint16_t)0x64), "a" ((uint8_t)0xFE));
     }
-    else if (strcmp(buffer, "tasks") == 0)
+    else if (strcmp(buffer, "ps") == 0)
     {
         print_tasks();
     }

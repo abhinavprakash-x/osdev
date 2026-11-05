@@ -44,8 +44,8 @@ bool elf_validate(const void* image, uint32_t size)
     {
         if(phdr[i].p_type != PT_LOAD) continue;
 
-        if(phdr[i].p_memsz == 0) return false;
         if(phdr[i].p_filesz > phdr[i].p_memsz) return false;
+        if(phdr[i].p_memsz == 0) continue; // Skip empty (.data/.bss) segments
 
         if(phdr[i].p_offset > size) return false;
         if(phdr[i].p_filesz > (size - phdr[i].p_offset)) return false;
@@ -65,7 +65,7 @@ bool elf_validate(const void* image, uint32_t size)
         uint32_t page_end_i   = vaddr_end & 0xFFFFF000u;
         for(uint16_t j = 0; j < i; ++j)
         {
-            if(phdr[j].p_type != PT_LOAD) continue;
+            if(phdr[j].p_type != PT_LOAD || phdr[j].p_memsz == 0) continue;
             uint32_t page_start_j = phdr[j].p_vaddr & 0xFFFFF000u;
             uint32_t page_end_j   = (phdr[j].p_vaddr + phdr[j].p_memsz - 1u) & 0xFFFFF000u;
 
@@ -94,7 +94,7 @@ task_t* create_user_task_elf(const char* name, const void* image, uint32_t size)
     // 1. Load each PT_LOAD segment into the user address space
     for (uint16_t i = 0; i < ehdr->e_phnum; ++i)
     {
-        if (phdr[i].p_type != PT_LOAD) continue;
+        if (phdr[i].p_type != PT_LOAD || phdr[i].p_memsz == 0) continue;
 
         uint32_t seg_vaddr    = phdr[i].p_vaddr;
         uint32_t seg_file_end = seg_vaddr + phdr[i].p_filesz;
