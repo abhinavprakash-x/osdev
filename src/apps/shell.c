@@ -15,6 +15,8 @@
 #include "mm/paging.h"
 #include "mm/heap.h"
 #include "task/scheduler.h"
+#include "drivers/fs.h"
+#include "task/elf.h"
 
 #define INT_MIN -2147483648
 #define INT_MAX 2147483647
@@ -274,6 +276,55 @@ void execute_command(void)
     else if (strcmp(buffer, "tasks") == 0)
     {
         print_tasks();
+    }
+    else if(strcmp(buffer, "ls") == 0)
+    {
+        fs_list_files();
+    }
+    else if(strncmp(buffer, "cat ", 4) == 0)
+    {
+        char* filename = buffer + 4;
+        while(*filename == ' ') filename++;
+
+        if(*filename == '\0') printf("Error: No filename provided.\n");
+        else
+        {
+            void* file_buffer = 0;
+            uint32_t file_size = 0;
+
+            if(fs_read_file(filename, &file_buffer, &file_size))
+            {
+                printf("File: %s (Size: %d bytes)\n", filename, file_size);
+                for(uint32_t i = 0; i < file_size; i++)
+                {
+                    putchar(((char*)file_buffer)[i]);
+                }
+                putchar('\n');
+                kfree(file_buffer);
+            }
+            else printf("Error: File '%s' not found or could not be read.\n", filename);
+        }
+    }
+    else if(strncmp(buffer, "run ", 4) == 0)
+    {
+        char* filename = buffer + 4;
+        while (*filename == ' ') filename++;
+
+        if (*filename == '\0') printf("Error: No filename provided.\n");
+        else
+        {
+            void* elf_buffer = 0;
+            uint32_t elf_size = 0;
+
+            if(fs_read_file(filename, &elf_buffer, &elf_size))
+            {
+                printf("Executing ELF file: %s (Size: %d bytes)\n", filename, elf_size);
+                task_t* task = create_user_task_elf(filename, elf_buffer, elf_size);
+                kfree(elf_buffer);
+                task_add(task);
+            }
+            else printf("Error: ELF file '%s' not found or could not be read.\n", filename);
+        }
     }
     else
     {

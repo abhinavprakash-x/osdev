@@ -17,6 +17,7 @@
 #include "task/scheduler.h"
 #include "cpu/gdt.h"
 #include "cpu/tss.h"
+#include "drivers/fs.h"
 
 extern void shell_init(void);
 extern void shell_input(char c);
@@ -65,6 +66,9 @@ void kmain(void)
 
     scheduler_init();
     printf("[ OK ] Scheduler\n");
+
+    if(fs_init()) printf("[ OK ] Filesystem (BMFS)\n");
+    else printf("[WARN] Filesystem not found\n");
 
     printf("\n----------------------------------------\n");
     printf("Kernel initialization complete.\n");
