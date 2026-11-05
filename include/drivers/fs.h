@@ -5,6 +5,7 @@
 #define FS_MAX_FILENAME 20u
 #define FS_MAX_FILES    15u
 #define FS_MAGIC        0x53464D42u // "BMFS" in little-endian
+#define FS_SUPERBLOCK_LBA (1u + (uint32_t)KERNEL_MAX_SECTORS)
 
 typedef struct {
     char     name[FS_MAX_FILENAME]; // Null-terminated filename (20 bytes)

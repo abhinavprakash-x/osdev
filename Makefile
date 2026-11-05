@@ -75,7 +75,8 @@ CFLAGS := \
 	-Werror=return-type \
 	-MMD \
 	-MP \
-	-I$(INCLUDE_DIR)
+	-I$(INCLUDE_DIR) \
+	-DKERNEL_MAX_SECTORS=$(KERNEL_MAX_SECTORS)
 
 # NASM flags for normal kernel assembly
 ASFLAGS := -f elf32

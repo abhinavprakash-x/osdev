@@ -6,7 +6,7 @@ bool ata_read_sectors(uint32_t lba, uint8_t count, void* buffer)
     if(count == 0 || buffer == 0 || lba > 0x0FFFFFFFu) return false;
 
     int iter = 0;
-    while(!(inb(ATA_PORT_STATUS) & ATA_SR_BSY) == 0)
+    while ((inb(ATA_PORT_STATUS) & ATA_SR_BSY) != 0)
     {
         iter++;
         if(iter > 100000) return false;
