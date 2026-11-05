@@ -1,5 +1,6 @@
 # Bare Minimum Filesystem (BMFS)
 
+This is a simple filesystem for the operating system.
 boot.img
 LBA 0: Boot sector (512 bytes)
 LBA 1 -> KENEL_MAX_SECTORS: Kernel sectors (512 bytes each)
