@@ -7,6 +7,7 @@
 
 #include "drivers/keyboard.h"
 #include "drivers/port_io.h"
+#include "drivers/vga.h"
 
 // Hardware I/O Ports
 #define KEYBOARD_DATA_PORT 0x60
@@ -97,9 +98,13 @@ void keyboard_process_scancode(uint8_t scancode)
     {
         extended_scancode = false;
 
-        if(scancode & 0x80) return; // Ignore key releases for extended scancodes
-        if (scancode == 0x1C) keyboard_enqueue_char('\n'); // Keypad Enter
+        if (scancode & 0x80) return; // Ignore key releases for extended scancodes
+        if (scancode == 0x1C) keyboard_enqueue_char('\n');     // Keypad Enter
         else if (scancode == 0x35) keyboard_enqueue_char('/'); // Keypad '/'
+        else if (scancode == 0x48) vga_scroll_up(1);           // Up Arrow
+        else if (scancode == 0x50) vga_scroll_down(1);         // Down Arrow
+        else if (scancode == 0x49) vga_scroll_up(10);          // Page Up
+        else if (scancode == 0x51) vga_scroll_down(10);        // Page Down
 
         return;
     }

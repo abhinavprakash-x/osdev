@@ -1,12 +1,13 @@
 /*
  * VGA Text Mode Driver
- * Manages the 80x25 hardware text buffer at physical address 0xB8000.
- * Handles hardware cursor updates, screen scrolling, and control characters.
+ * Manages the 80x25 hardware text buffer at physical address 0xB8000
+ * backed by a 200-line scrollback buffer.
  */
 
 #include "drivers/vga.h"
 #include "libc/mem.h"
 #include "drivers/port_io.h"
+#include <stdbool.h>
 
 // Hardware I/O Ports for the VGA CRT Controller
 #define VGA_CTRL_REGISTER 0x3D4
@@ -64,7 +65,6 @@ void vga_scroll_down(size_t lines)
 
 void clear_screen(void)
 {
-    // A VGA character takes 2 bytes: [ASCII Char] [Color Attribute]
     for(size_t i = 0; i < VGA_WIDTH * VGA_SCROLLBACK_LINES; ++i)
     {
         back_buffer[i * 2] = ' ';
@@ -81,58 +81,76 @@ void clear_screen(void)
 
 void putchar(char c)
 {
-    scroll_offset = 0; // Reset scroll offset to show the latest output
+    bool need_flush = (scroll_offset != 0);
+    scroll_offset = 0;
 
     if (c == '\n')
     {
         col = 0;
         row++;
+        if (row >= VGA_HEIGHT) need_flush = true;
     }
     else if (c == '\t')
     {
-        col = (col + 4) & ~3; // Align to the next multiple of 4 using bitwise math
+        col = (col + 4) & ~3;
         if (col >= VGA_WIDTH)
         {
             col = 0;
             row++;
+            if (row >= VGA_HEIGHT) need_flush = true;
         }
     }
     else if (c == '\b')
     {
-        if (col == 0) 
+        if (col == 0)
         {
-            if (row > 0) 
+            if (row > 0)
             {
                 row--;
                 col = VGA_WIDTH - 1;
+                need_flush = true;
             }
-        } 
+        }
         else col--;
 
-        size_t index = (row * VGA_WIDTH + col) * 2;
-        back_buffer[index] = ' ';
-        back_buffer[index + 1] = color;
+        size_t back_idx = (row * VGA_WIDTH + col) * 2;
+        back_buffer[back_idx] = ' ';
+        back_buffer[back_idx + 1] = color;
+
+        if (!need_flush)
+        {
+            size_t screen_row = (row >= VGA_HEIGHT) ? (VGA_HEIGHT - 1) : row;
+            size_t vid_idx = (screen_row * VGA_WIDTH + col) * 2;
+            video[vid_idx] = ' ';
+            video[vid_idx + 1] = color;
+        }
     }
     else
     {
-        size_t index = (row * VGA_WIDTH + col) * 2;
-        back_buffer[index] = c;
-        back_buffer[index + 1] = color;
+        size_t back_idx = (row * VGA_WIDTH + col) * 2;
+        back_buffer[back_idx] = c;
+        back_buffer[back_idx + 1] = color;
+
+        if (!need_flush)
+        {
+            size_t screen_row = (row >= VGA_HEIGHT) ? (VGA_HEIGHT - 1) : row;
+            size_t vid_idx = (screen_row * VGA_WIDTH + col) * 2;
+            video[vid_idx] = c;
+            video[vid_idx + 1] = color;
+        }
 
         col++;
         if (col >= VGA_WIDTH)
         {
             col = 0;
             row++;
+            if (row >= VGA_HEIGHT) need_flush = true;
         }
     }
 
-    // Handle screen scrolling if we hit the bottom of the screen
-    if (row >= VGA_HEIGHT)
+    // Only shift the 200-line history buffer when all 200 lines are full
+    if (row >= VGA_SCROLLBACK_LINES)
     {
-        // Destination: The very start of video memory (Row 0)
-        // Source: The start of Row 1 (video + VGA_WIDTH * 2 bytes)
-        // Count: The total bytes in 24 rows
         size_t row_size = VGA_WIDTH * 2;
         size_t bytes_to_copy = VGA_WIDTH * (VGA_SCROLLBACK_LINES - 1) * 2;
 
@@ -144,10 +162,15 @@ void putchar(char c)
             back_buffer[last_row_start + (i * 2)] = ' ';
             back_buffer[last_row_start + (i * 2) + 1] = color;
         }
-        row = VGA_HEIGHT - 1;
+        row = VGA_SCROLLBACK_LINES - 1;
         col = 0;
+        need_flush = true;
     }
-    flush_buffer();
+
+    if (need_flush)
+    {
+        flush_buffer();
+    }
     update_cursor();
 }
 
@@ -173,13 +196,13 @@ void update_cursor(void)
         size_t screen_row = (row >= VGA_HEIGHT) ? (VGA_HEIGHT - 1) : row;
         index = screen_row * VGA_WIDTH + col;
     }
-    
-    uint8_t high = (index >> 8);
-    uint8_t low = index & 0xff;
 
-    outb(VGA_CTRL_REGISTER, VGA_OFFSET_LOW); 
+    uint8_t high = (uint8_t)(index >> 8);
+    uint8_t low  = (uint8_t)(index & 0xFF);
+
+    outb(VGA_CTRL_REGISTER, VGA_OFFSET_LOW);
     outb(VGA_DATA_REGISTER, low);
 
-    outb(VGA_CTRL_REGISTER, VGA_OFFSET_HIGH); 
+    outb(VGA_CTRL_REGISTER, VGA_OFFSET_HIGH);
     outb(VGA_DATA_REGISTER, high);
 }
