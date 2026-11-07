@@ -67,8 +67,6 @@ Completion criterion:
 
 # Current Major Milestone
 
-Step 1. expand back buffer to 200 line scrollable buffer using arrow keys to go up/down.
-Step 2. The 4 small code improvements you suggested earlier
 Step 3. interactive userspace (SYS_READ SYS_EXEC)
 step 4. Writable filesystem
 Step 6. Directories/improving the BMFS
