@@ -8,60 +8,6 @@ than being silently fixed as unrelated changes.
 
 ---
 
-# Milestone 1 — Stabilize and Verify
-
-Goal: establish a trustworthy baseline for the current kernel.
-
-- Add regression tests for every fixed bug.
-- Run the kernel under QEMU with assertions and logging.
-- Test allocation failures.
-- Test invalid addresses.
-- Test task exhaustion.
-- Test large inputs.
-- Verify existing PMM, paging, heap, scheduler, and syscall behavior.
-
-Completion criterion:
-
-> Every currently tracked bug that is marked FIXED has a corresponding
-> regression test and has been VERIFIED.
-
----
-
-# Milestone 2 — Improve Memory Management
-
-Goal: make physical and virtual memory management reliable enough
-to support multiple independent processes.
-
-- Add physical-frame ownership/reference counting.
-- Implement page-fault diagnostics.
-- Add virtual-memory allocation helpers.
-- Separate kernel and user address-space policies.
-
-Completion criterion:
-
-> User processes can safely allocate, map, unmap, and release memory
-> without leaking or freeing memory owned by another process.
-
----
-
-# Milestone 3 — Build a Reliable Process Model
-
-Goal: establish well-defined process/task lifetime and scheduling.
-
-- Define task creation and cleanup contracts.
-- Add an idle task.
-- Make scheduler behavior robust when no normal task is runnable.
-- Implement process termination.
-- Add exit statuses.
-- Preserve complete CPU state during context switches.
-
-Completion criterion:
-
-> Multiple processes can start, sleep, wake, terminate, and be cleaned up
-> without corrupting scheduler state or leaking resources.
-
----
-
 # Milestone 4 — Create a Real User-Program Loader
 
 Goal: replace the temporary user-test mechanism with a proper executable loader.
@@ -121,5 +67,10 @@ Completion criterion:
 
 # Current Major Milestone
 
-> **Run multiple user processes safely, with reliable allocation,
-> cleanup, scheduling, and page-fault handling.**
+Step 1. expand back buffer to 200 line scrollable buffer using arrow keys to go up/down.
+Step 2. The 4 small code improvements you suggested earlier
+Step 3. interactive userspace (SYS_READ SYS_EXEC)
+step 4. Writable filesystem
+Step 6. Directories/improving the BMFS
+Step 7. Resolve BUG-046
+Step 8. Documentation Overhaul

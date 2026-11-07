@@ -18,35 +18,71 @@
 #define VGA_MEM_ADDR      0xB8000
 
 static volatile char* const video = (volatile char*)VGA_MEM_ADDR;
-static char back_buffer[VGA_WIDTH * VGA_HEIGHT * 2];
+static char back_buffer[VGA_WIDTH * VGA_SCROLLBACK_LINES * 2];
 
 static size_t row = 0;
 static size_t col = 0;
+static size_t scroll_offset = 0;
+
 // Default Color: Light Green (0xA) on Black Background (0x0)
 static const char color = 0x0A;
 
+static size_t get_bottom_view_start(void)
+{
+    return (row >= VGA_HEIGHT) ? (row - (VGA_HEIGHT - 1)) : 0;
+}
+
 static void flush_buffer(void)
 {
-    memcpy((void*)video, back_buffer, VGA_WIDTH * VGA_HEIGHT * 2);
+    size_t bottom_start = get_bottom_view_start();
+    if(scroll_offset > bottom_start) scroll_offset = bottom_start;
+
+    size_t view_start = bottom_start - scroll_offset;
+    const char* src = back_buffer + (view_start * VGA_WIDTH * 2);
+
+    memcpy((void*)video, src, VGA_WIDTH * VGA_HEIGHT * 2);
+}
+
+void vga_scroll_up(size_t lines)
+{
+    size_t max_offset = get_bottom_view_start();
+    if(scroll_offset + lines > max_offset) scroll_offset = max_offset;
+    else scroll_offset += lines;
+
+    flush_buffer();
+    update_cursor();
+}
+
+void vga_scroll_down(size_t lines)
+{
+    if(scroll_offset < lines) scroll_offset = 0;
+    else scroll_offset -= lines;
+
+    flush_buffer();
+    update_cursor();
 }
 
 void clear_screen(void)
 {
     // A VGA character takes 2 bytes: [ASCII Char] [Color Attribute]
-    for (size_t i = 0; i < VGA_WIDTH * VGA_HEIGHT; ++i)
+    for(size_t i = 0; i < VGA_WIDTH * VGA_SCROLLBACK_LINES; ++i)
     {
         back_buffer[i * 2] = ' ';
         back_buffer[i * 2 + 1] = color;
     }
-    flush_buffer();
-
+    
     row = 0;
     col = 0;
+    scroll_offset = 0;
+
+    flush_buffer();
     update_cursor();
 }
 
 void putchar(char c)
 {
+    scroll_offset = 0; // Reset scroll offset to show the latest output
+
     if (c == '\n')
     {
         col = 0;
@@ -76,19 +112,12 @@ void putchar(char c)
         size_t index = (row * VGA_WIDTH + col) * 2;
         back_buffer[index] = ' ';
         back_buffer[index + 1] = color;
-
-        video[index] = ' ';
-        video[index + 1] = color;
     }
     else
     {
         size_t index = (row * VGA_WIDTH + col) * 2;
-
         back_buffer[index] = c;
         back_buffer[index + 1] = color;
-
-        video[index] = c;
-        video[index + 1] = color;
 
         col++;
         if (col >= VGA_WIDTH)
@@ -105,21 +134,20 @@ void putchar(char c)
         // Source: The start of Row 1 (video + VGA_WIDTH * 2 bytes)
         // Count: The total bytes in 24 rows
         size_t row_size = VGA_WIDTH * 2;
-        size_t bytes_to_copy = VGA_WIDTH * (VGA_HEIGHT - 1) * 2;
+        size_t bytes_to_copy = VGA_WIDTH * (VGA_SCROLLBACK_LINES - 1) * 2;
 
         memcpy(back_buffer, back_buffer + row_size, bytes_to_copy);
 
-        size_t last_row_start = (VGA_HEIGHT - 1) * VGA_WIDTH * 2;
+        size_t last_row_start = (VGA_SCROLLBACK_LINES - 1) * VGA_WIDTH * 2;
         for (size_t i = 0; i < VGA_WIDTH; i++)
         {
             back_buffer[last_row_start + (i * 2)] = ' ';
             back_buffer[last_row_start + (i * 2) + 1] = color;
         }
-        flush_buffer();
-
         row = VGA_HEIGHT - 1;
         col = 0;
     }
+    flush_buffer();
     update_cursor();
 }
 
@@ -133,7 +161,19 @@ void print(const char* s)
 
 void update_cursor(void)
 {
-    size_t index = row * VGA_WIDTH + col;
+    size_t index;
+
+    if (scroll_offset > 0)
+    {
+        // Hide the hardware cursor off-screen while viewing scrollback history
+        index = VGA_WIDTH * VGA_HEIGHT;
+    }
+    else
+    {
+        size_t screen_row = (row >= VGA_HEIGHT) ? (VGA_HEIGHT - 1) : row;
+        index = screen_row * VGA_WIDTH + col;
+    }
+    
     uint8_t high = (index >> 8);
     uint8_t low = index & 0xff;
 
