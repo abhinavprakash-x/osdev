@@ -63,7 +63,7 @@ void execute_command(void)
         printf("    ps                   Display active tasks\n");
         printf("    ls                   Display all files\n");
         printf("    cat [file]           Display content of file\n");
-        printf("    run [file]           Executes elf task\n");
+        printf("    run <file> [&]       Execute an ELF program (& for background)\n");
         printf("    test [suite]         Run kernel tests\n");
 
         printf("\n  Memory\n");
@@ -135,6 +135,7 @@ void execute_command(void)
         else if(strcmp(buffer, "test memory") == 0) test_memory();
         else if(strcmp(buffer, "test scheduler") == 0) test_scheduler();
         else if(strcmp(buffer, "test user") == 0) launch_user_test();
+        else if(strcmp(buffer, "test fs") == 0) test_fs();
         else printf("Unknown test suite.\n");
     }
     else if (strcmp(buffer, "meminfo") == 0)
@@ -308,10 +309,21 @@ void execute_command(void)
             else printf("Error: File '%s' not found or could not be read.\n", filename);
         }
     }
-    else if(strncmp(buffer, "run ", 4) == 0)
+    else if (strncmp(buffer, "run ", 4) == 0)
     {
         char* filename = buffer + 4;
         while (*filename == ' ') filename++;
+
+        bool background = false;
+        size_t len = strlen(filename);
+        while (len > 0 && filename[len - 1] == ' ') filename[--len] = '\0';
+
+        if (len > 0 && filename[len - 1] == '&')
+        {
+            background = true;
+            filename[--len] = '\0';
+            while (len > 0 && filename[len - 1] == ' ') filename[--len] = '\0';
+        }
 
         if (*filename == '\0') printf("Error: No filename provided.\n");
         else
@@ -328,8 +340,14 @@ void execute_command(void)
                 if(task == 0) printf("Error: '%s' is not a valid ELF32 executable.\n", filename);
                 else
                 {
+                    uint32_t pid = task->pid;
                     task_add(task);
-                    printf("[ OK ] Launched '%s' (PID %d, %d bytes)\n", entry->name, task->pid, elf_size);
+                    if(background) printf("[ OK ] Launched '%s' in background (PID %d, %d bytes)\n", entry->name, pid, elf_size);
+                    else
+                    {
+                        int32_t status = 0;
+                        task_wait_pid(pid, &status);
+                    }
                 }
             }
             else printf("Error: File '%s' not found or could not be read.\n", filename);

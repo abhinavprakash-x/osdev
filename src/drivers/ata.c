@@ -1,7 +1,7 @@
 #include "drivers/ata.h"
 #include "drivers/port_io.h"
 
-bool ata_read_sectors(uint32_t lba, uint8_t count, void* buffer)
+static bool ata_read_sectors_unlocked(uint32_t lba, uint8_t count, void* buffer)
 {
     if(count == 0 || buffer == 0 || lba > 0x0FFFFFFFu) return false;
 
@@ -47,4 +47,15 @@ bool ata_read_sectors(uint32_t lba, uint8_t count, void* buffer)
     }
 
     return true;
+}
+
+bool ata_read_sectors(uint32_t lba, uint8_t count, void* buffer)
+{
+    uint32_t eflags;
+    __asm__ volatile ("pushfl; pop %0; cli" : "=r"(eflags) : : "memory");
+
+    bool ok = ata_read_sectors_unlocked(lba, count, buffer);
+
+    __asm__ volatile ("push %0; popfl" : : "r"(eflags) : "memory", "cc");
+    return ok;
 }

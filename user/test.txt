@@ -1,7 +1,8 @@
 Welcome to Bare Minimum File System (BMFS)!
 Try running:
   ls
-  cat readme.txt
+  cat test.txt
   run hello.elf
   run fib.elf
   run counter.elf
+  run sleep.elf &

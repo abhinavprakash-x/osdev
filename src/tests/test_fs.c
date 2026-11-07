@@ -20,7 +20,7 @@ void test_fs(void)
     test_assert_true(fs_init(), "bmfs(fs_init mounts superblock)");
     test_assert_true(fs_find("hello.elf") != 0, "bmfs(fs_find locates hello.elf)");
     test_assert_true(fs_find("fib.elf") != 0, "bmfs(fs_find locates fib.elf)");
-    test_assert_true(fs_find("test.txt") != 0, "bmfs(fs_find locates readme.txt)");
+    test_assert_true(fs_find("test.txt") != 0, "bmfs(fs_find locates test.txt)");
     test_assert_true(fs_find("nonexistent.elf") == 0, "bmfs(fs_find rejects missing file)");
 
     int used_before = get_used_memory();

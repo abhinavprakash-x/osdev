@@ -13,6 +13,10 @@ bool fs_init(void)
     if(!ata_read_sectors(FS_SUPERBLOCK_LBA, 1, (uint8_t*)&superblock)) return false;
     if(superblock.magic != FS_MAGIC) return false;
     if(superblock.file_count > FS_MAX_FILES) return false;
+
+    for(uint32_t i = 0; i < superblock.file_count; ++i)
+        superblock.entries[i].name[FS_MAX_FILENAME - 1u] = '\0';
+
     fs_mounted = true;
     return true;
 }
