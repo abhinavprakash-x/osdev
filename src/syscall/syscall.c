@@ -61,6 +61,45 @@ static int32_t sys_read(char* buffer, uint32_t length)
     return (int32_t)count;
 }
 
+static int32_t sys_exec(const char* user_filename)
+{
+    if (user_filename == 0) return -1;
+
+    // Safely copy the null-terminated filename from User Space into Kernel Space
+    char kfilename[FS_MAX_FILENAME];
+    uint32_t i = 0;
+    for (; i < FS_MAX_FILENAME; ++i)
+    {
+        if (!user_range_valid((uint32_t)&user_filename[i], 1))
+            return -1;
+
+        kfilename[i] = user_filename[i];
+        if (kfilename[i] == '\0')
+            break;
+    }
+
+    // Reject empty strings or strings that were not null-terminated within FS_MAX_FILENAME
+    if (i == 0 || i == FS_MAX_FILENAME)
+        return -1;
+
+    const fs_entry_t* entry = fs_find(kfilename);
+    if (entry == 0) return -1;
+
+    void* elf_buffer = 0;
+    uint32_t elf_size = 0;
+    if (!fs_read_file(kfilename, &elf_buffer, &elf_size))
+        return -1;
+
+    task_t* task = create_user_task_elf(entry->name, elf_buffer, elf_size);
+    kfree(elf_buffer);
+
+    if (task == 0) return -1;
+
+    uint32_t pid = task->pid;
+    task_add(task);
+    return (int32_t)pid;
+}
+
 void syscall_handler(registers_t *regs)
 {
     switch (regs->eax)
@@ -117,6 +156,10 @@ void syscall_handler(registers_t *regs)
 
         case SYS_READ:
             regs->eax = (uint32_t)sys_read((char*)regs->ebx, regs->ecx);
+            break;
+
+        case SYS_EXEC:
+            regs->eax = (uint32_t)sys_exec((const char*)regs->ebx);
             break;
 
         default:

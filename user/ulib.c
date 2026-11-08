@@ -69,6 +69,13 @@ int32_t sys_read(char* buf, uint32_t max_len)
     return ret;
 }
 
+int32_t sys_exec(const char* filename)
+{
+    int32_t ret;
+    __asm__ volatile ("int $0x80" : "=a"(ret) : "a"(SYS_EXEC), "b"(filename) : "memory");
+    return ret;
+}
+
 size_t strlen(const char* s)
 {
     size_t i = 0;

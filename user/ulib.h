@@ -20,6 +20,7 @@ int32_t  sys_sleep(uint32_t ms);
 uint32_t sys_getpid(void);
 int32_t  sys_waitpid(uint32_t pid, int32_t* out_status);
 int32_t  sys_read(char* buf, uint32_t max_len);
+int32_t  sys_exec(const char* filename);
 
 size_t strlen(const char* s);
 void   uprint(const char* s);
