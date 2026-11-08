@@ -53,7 +53,6 @@ void execute_command(void)
         printf("    help                 Show available commands\n");
         printf("    clear                Clear the screen\n");
         printf("    echo <text>          Print text to the console\n");
-        printf("    calc <expression>    Evaluate a basic expression\n");
         printf("    time                 Show time since boot\n");
         printf("    reboot               Restart the system\n");
 
@@ -80,48 +79,6 @@ void execute_command(void)
     {
         // print everything after the "echo " command
         printf("%s\n",buffer + 5);
-    }
-    else if (strncmp(buffer, "calc ", 5) == 0)
-    {
-        char* eqn_l = buffer + 5; // pointer to the first operand
-        char operator = 0;
-        char* eqn_r = 0; // pointer to the second operand
-        int i = 1;
-
-        // Parse the equation to find the operator and split the string
-        while(eqn_l[i] != '\0')
-        {
-            if (eqn_l[i] == '+' || eqn_l[i] == '-' || eqn_l[i] == '*' || eqn_l[i] == '/')
-            {
-                operator = eqn_l[i];
-                eqn_l[i] = '\0';
-                eqn_r = &eqn_l[i + 1];
-                break;
-            }
-            i++;
-        }
-        if(operator != 0)
-        {
-            int num1 = atoi(eqn_l);
-            int num2 = atoi(eqn_r);
-            int result = 0;
-            int error = 0;
-
-            if (operator == '+') result = num1 + num2;
-            else if (operator == '-') result = num1 - num2;
-            else if (operator == '*') result = num1 * num2;
-            else if (operator == '/')
-            {
-                if (num2 == 0 || (num1 == INT_MIN && num2 == -1))
-                {
-                    printf("Error: Division by zero\n");
-                    error = 1;
-                }
-                else result = num1 / num2;
-            }
-            if(!error) printf("%d\n", result);
-        }
-        else printf("Error: Invalid syntax. Use format: calc 5+3\n");
     }
     else if (strcmp(buffer, "time") == 0)
     {
