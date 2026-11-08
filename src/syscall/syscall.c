@@ -2,6 +2,10 @@
 #include "interrupts/idt.h"
 #include "task/scheduler.h"
 #include "drivers/vga.h"
+#include "drivers/keyboard.h"
+#include "drivers/fs.h"
+#include "task/elf.h"
+#include "mm/heap.h"
 #include "mm/paging.h"
 
 static int32_t sys_write(const char* buffer, uint32_t length)
@@ -16,6 +20,45 @@ static int32_t sys_write(const char* buffer, uint32_t length)
         putchar(buffer[i]);
     }
     return (int32_t)length;
+}
+
+static int32_t sys_read(char* buffer, uint32_t length)
+{
+    if (buffer == 0) return -1;
+    if (length == 0) return 0;
+
+    if (!user_range_valid((uint32_t)buffer, length)) return -1;
+    if (!paging_is_mapped_range((uint32_t)buffer, length, true)) return -1;
+
+    uint32_t count = 0;
+    while (count < length)
+    {
+        char c = keyboard_get_char();
+        while (c == 0)
+        {
+            __asm__ volatile ("sti; hlt; cli" : : : "memory");
+            yield();
+            c = keyboard_get_char();
+        }
+
+        if (c == '\n')
+        {
+            putchar('\n');
+            break;
+        }
+        else if (c == '\b')
+        {
+            if (count > 0)
+            {
+                putchar('\b');
+                count--;
+            }
+            continue;
+        }
+        buffer[count++] = c;
+        putchar(c);
+    }
+    return (int32_t)count;
 }
 
 void syscall_handler(registers_t *regs)
@@ -71,6 +114,10 @@ void syscall_handler(registers_t *regs)
             }
             break;
         }
+
+        case SYS_READ:
+            regs->eax = (uint32_t)sys_read((char*)regs->ebx, regs->ecx);
+            break;
 
         default:
             regs->eax = (uint32_t)-1;

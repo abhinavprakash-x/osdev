@@ -9,5 +9,7 @@
 #define SYS_SLEEP   4
 #define SYS_GETPID  5
 #define SYS_WAITPID 6
+#define SYS_READ    7
+#define SYS_EXEC    8
 
 void syscall_handler(registers_t *regs);

@@ -69,6 +69,7 @@ Completion criterion:
 
 Step 3. interactive userspace (SYS_READ SYS_EXEC)
 step 4. Writable filesystem
+step 5. Improve folder structure and organization (maybe make libc/syscalls in root or something similar)
 Step 6. Directories/improving the BMFS
 Step 7. Resolve BUG-046
 Step 8. Documentation Overhaul

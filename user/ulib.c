@@ -62,6 +62,13 @@ int32_t sys_waitpid(uint32_t pid, int32_t* out_status)
     return ret;
 }
 
+int32_t sys_read(char* buf, uint32_t max_len)
+{
+    int32_t ret;
+    __asm__ volatile ("int $0x80" : "=a"(ret) : "a"(SYS_READ), "b"(buf), "c"(max_len) : "memory");
+    return ret;
+}
+
 size_t strlen(const char* s)
 {
     size_t i = 0;
@@ -74,7 +81,7 @@ void uprint(const char* s)
     sys_write(s, (uint32_t)strlen(s));
 }
 
-static void uitoa(int num, char* str)
+void uitoa(int num, char* str)
 {
     int i = 0;
     int neg = 0;
@@ -111,6 +118,27 @@ static void uitoa(int num, char* str)
         str[l] = str[r];
         str[r] = tmp;
     }
+}
+
+int uatoi(const char* str)
+{
+    int result = 0;
+    int sign = 1;
+    int i = 0;
+
+    while (str[i] == ' ') i++;
+
+    if (str[i] == '-' || str[i] == '+')
+    {
+        if (str[i] == '-') sign = -1;
+        i++;
+    }
+    while (str[i] >= '0' && str[i] <= '9')
+    {
+        result = result * 10 + (str[i] - '0');
+        i++;
+    }
+    return sign * result;
 }
 
 void uprintf(const char* format, ...)
@@ -152,4 +180,29 @@ void uprintf(const char* format, ...)
     }
 
     va_end(args);
+}
+
+int strcmp(const char* s1, const char* s2)
+{
+    size_t i = 0;
+    while(s1[i] != '\0' && s1[i] == s2[i]) i++;
+    return ((unsigned char)s1[i] - (unsigned char)s2[i]);
+}
+
+int32_t readline(char* buf, uint32_t max_len)
+{
+    if (buf == 0 || max_len == 0) return -1;
+    if (max_len == 1)
+    {
+        buf[0] = '\0';
+        return 0;
+    }
+    int32_t n = sys_read(buf, max_len - 1u);
+    if (n < 0)
+    {
+        buf[0] = '\0';
+        return -1;
+    }
+    buf[n] = '\0';
+    return n;
 }
