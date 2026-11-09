@@ -49,7 +49,18 @@ static bool ata_read_sectors_unlocked(uint32_t lba, uint8_t count, void* buffer)
     return true;
 }
 
-static bool ata_write_sectors_unlocked(uint32_t lba, uint8_t count,const void* buffer)
+bool ata_read_sectors(uint32_t lba, uint8_t count, void* buffer)
+{
+    uint32_t eflags;
+    __asm__ volatile ("pushfl; pop %0; cli" : "=r"(eflags) : : "memory");
+
+    bool ok = ata_read_sectors_unlocked(lba, count, buffer);
+
+    __asm__ volatile ("push %0; popfl" : : "r"(eflags) : "memory", "cc");
+    return ok;
+}
+
+static bool ata_write_sectors_unlocked(uint32_t lba, uint8_t count, const void* buffer)
 {
     if(count == 0 || buffer == 0 || lba > 0x0FFFFFFFu) return false;
 
@@ -84,7 +95,6 @@ static bool ata_write_sectors_unlocked(uint32_t lba, uint8_t count,const void* b
             }
             if(++iter > 100000) return false;
         }
-        if((inb(ATA_PORT_STATUS) & (ATA_SR_ERR | ATA_SR_DF)) != 0) return false;
 
         const uint16_t* in_words = (const uint16_t*)((const uint8_t*)buffer + (s * 512u));
         for(int w = 0; w < 256; ++w)
@@ -93,27 +103,18 @@ static bool ata_write_sectors_unlocked(uint32_t lba, uint8_t count,const void* b
         }
     }
 
-    outb(ATA_PORT_COMMAND, 0xE7); // 0xE7 = ATA_CMD_CACHE_FLUSH
+    // Flush the drive's write cache to disk (0xE7 = ATA_CMD_CACHE_FLUSH)
+    outb(ATA_PORT_COMMAND, 0xE7);
     iter = 0;
     while((inb(ATA_PORT_STATUS) & ATA_SR_BSY) != 0)
     {
         if(++iter > 100000) return false;
     }
+
     return true;
 }
 
-bool ata_read_sectors(uint32_t lba, uint8_t count, void* buffer)
-{
-    uint32_t eflags;
-    __asm__ volatile ("pushfl; pop %0; cli" : "=r"(eflags) : : "memory");
-
-    bool ok = ata_read_sectors_unlocked(lba, count, buffer);
-
-    __asm__ volatile ("push %0; popfl" : : "r"(eflags) : "memory", "cc");
-    return ok;
-}
-
-bool ata_write_sectors(uint32_t lba, uint8_t count,const void* buffer)
+bool ata_write_sectors(uint32_t lba, uint8_t count, const void* buffer)
 {
     uint32_t eflags;
     __asm__ volatile ("pushfl; pop %0; cli" : "=r"(eflags) : : "memory");
