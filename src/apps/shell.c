@@ -60,10 +60,14 @@ void execute_command(void)
         printf("    cpuinfo              Display CPU information\n");
         printf("    meminfo              Display physical memory usage\n");
         printf("    ps                   Display active tasks\n");
+        printf("    test [suite]         Run kernel tests\n");
+
+        printf("\n  Files\n");
         printf("    ls                   Display all files\n");
         printf("    cat [file]           Display content of file\n");
         printf("    run <file> [&]       Execute an ELF program (& for background)\n");
-        printf("    test [suite]         Run kernel tests\n");
+        printf("    write <file> <text>  Write or Overwrite a file\n");
+        printf("    rm <file>            Delete a file\n");
 
         printf("\n  Memory\n");
         printf("    alloc <bytes>        Allocate kernel heap memory\n");
@@ -308,6 +312,42 @@ void execute_command(void)
                 }
             }
             else printf("Error: File '%s' not found or could not be read.\n", filename);
+        }
+    }
+    else if (strncmp(buffer, "write ", 6) == 0)
+    {
+        char* filename = buffer + 6;
+        while (*filename == ' ') filename++;
+
+        int space_index = 0;
+        while(filename[space_index] != '\0' && filename[space_index] != ' ') space_index++;
+
+        if(filename[0] == '\0' || filename[space_index] != ' ') printf("Syntax: write <file> <text>\n");
+        else
+        {
+            filename[space_index] = '\0';
+            char* content = filename + space_index + 1;
+            while(*content == ' ') content++;
+
+            if(*content == '\0') printf("Syntax: write <file> <text>\n");
+
+            else if(fs_write_file(filename, content, (uint32_t)strlen(content)))
+                printf("File '%s' written successfully (%d bytes).\n", filename, (int)strlen(content));
+            
+            else printf("Error: Could not write to file '%s'.\n", filename);
+        }
+    }
+    else if(strncmp(buffer, "rm ", 3) == 0)
+    {
+        char* filename = buffer + 3;
+        while(*filename == ' ') filename++;
+
+        if(*filename == '\0') printf("Error: No filename provided.\n");
+        else
+        {
+            if(fs_delete_file(filename))
+                printf("File '%s' deleted successfully.\n", filename);
+            else printf("Error: File '%s' not found or could not be deleted.\n", filename);
         }
     }
     else

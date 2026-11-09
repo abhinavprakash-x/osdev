@@ -59,3 +59,68 @@ bool ata_read_sectors(uint32_t lba, uint8_t count, void* buffer)
     __asm__ volatile ("push %0; popfl" : : "r"(eflags) : "memory", "cc");
     return ok;
 }
+
+static bool ata_write_sectors_unlocked(uint32_t lba, uint8_t count, const void* buffer)
+{
+    if(count == 0 || buffer == 0 || lba > 0x0FFFFFFFu) return false;
+
+    int iter = 0;
+    while ((inb(ATA_PORT_STATUS) & ATA_SR_BSY) != 0)
+    {
+        iter++;
+        if(iter > 100000) return false;
+    }
+
+    outb(ATA_PORT_DRIVE_HEAD, (uint8_t)(0xE0u | ((lba >> 24) & 0x0Fu)));
+    outb(ATA_PORT_SECT_COUNT, count);
+    outb(ATA_PORT_LBA_LOW,    (uint8_t)(lba & 0xFFu));
+    outb(ATA_PORT_LBA_MID,    (uint8_t)((lba >> 8) & 0xFFu));
+    outb(ATA_PORT_LBA_HIGH,   (uint8_t)((lba >> 16) & 0xFFu));
+
+    outb(ATA_PORT_COMMAND, 0x30); // 0x30 = ATA_CMD_WRITE_PIO
+
+    for(uint8_t s = 0; s < count; ++s)
+    {
+        inb(ATA_PORT_STATUS); inb(ATA_PORT_STATUS);
+        inb(ATA_PORT_STATUS); inb(ATA_PORT_STATUS);
+
+        iter = 0;
+        while(1)
+        {
+            uint8_t status = inb(ATA_PORT_STATUS);
+            if((status & ATA_SR_BSY) == 0)
+            {
+                if((status & (ATA_SR_ERR | ATA_SR_DF)) != 0) return false;
+                if((status & ATA_SR_DRQ) != 0) break;
+            }
+            if(++iter > 100000) return false;
+        }
+
+        const uint16_t* in_words = (const uint16_t*)((const uint8_t*)buffer + (s * 512u));
+        for(int w = 0; w < 256; ++w)
+        {
+            outw(ATA_PORT_DATA, in_words[w]);
+        }
+    }
+
+    // Flush the drive's write cache to disk (0xE7 = ATA_CMD_CACHE_FLUSH)
+    outb(ATA_PORT_COMMAND, 0xE7);
+    iter = 0;
+    while((inb(ATA_PORT_STATUS) & ATA_SR_BSY) != 0)
+    {
+        if(++iter > 100000) return false;
+    }
+
+    return true;
+}
+
+bool ata_write_sectors(uint32_t lba, uint8_t count, const void* buffer)
+{
+    uint32_t eflags;
+    __asm__ volatile ("pushfl; pop %0; cli" : "=r"(eflags) : : "memory");
+
+    bool ok = ata_write_sectors_unlocked(lba, count, buffer);
+
+    __asm__ volatile ("push %0; popfl" : : "r"(eflags) : "memory", "cc");
+    return ok;
+}

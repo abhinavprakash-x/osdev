@@ -234,6 +234,7 @@ $(BOOT_IMAGE): $(BOOT_BIN) $(KERNEL_BIN) $(FS_IMAGE)
 	fi
 	truncate -s $(KERNEL_MAX_SIZE) $(KERNEL_BIN)
 	cat $(BOOT_BIN) $(KERNEL_BIN) $(FS_IMAGE) > $@
+	truncate -s 4M $@
 
 
 # ============================================================

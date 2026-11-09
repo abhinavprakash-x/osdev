@@ -20,3 +20,4 @@
 #define ATA_SR_DF   0x20
 
 bool ata_read_sectors(uint32_t lba, uint8_t count, void* buffer);
+bool ata_write_sectors(uint32_t lba, uint8_t count, const void* buffer);
