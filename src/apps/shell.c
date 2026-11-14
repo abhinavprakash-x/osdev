@@ -63,11 +63,14 @@ void execute_command(void)
         printf("    test [suite]         Run kernel tests\n");
 
         printf("\n  Files\n");
-        printf("    ls                   Display all files\n");
-        printf("    cat [file]           Display content of file\n");
+        printf("    ls                   Display files in current directory\n");
+        printf("    pwd                  Print current working directory\n");
+        printf("    cd <dir>             Change current directory\n");
+        printf("    mkdir <dir>          Create a new directory\n");
+        printf("    cat <file>           Display content of file\n");
         printf("    run <file> [&]       Execute an ELF program (& for background)\n");
-        printf("    write <file> <text>  Write or Overwrite a file\n");
-        printf("    rm <file>            Delete a file\n");
+        printf("    write <file> <text>  Write or overwrite a file\n");
+        printf("    rm <file>            Delete a file or empty directory\n");
 
         printf("\n  Memory\n");
         printf("    alloc <bytes>        Allocate kernel heap memory\n");
@@ -349,6 +352,29 @@ void execute_command(void)
                 printf("File '%s' deleted successfully.\n", filename);
             else printf("Error: File '%s' not found or could not be deleted.\n", filename);
         }
+    }
+    else if(strcmp(buffer, "pwd") == 0)
+    {
+        char pwd[128];
+        fs_get_pwd(pwd, sizeof(pwd));
+        printf("%s\n", pwd);
+    }
+    else if(strncmp(buffer, "mkdir ", 6) == 0)
+    {
+        char* dirname = buffer + 6;
+        while(*dirname == ' ') dirname++;
+
+        if(*dirname == '\0') printf("Error: No directory name provided.\n");
+        else if(fs_mkdir(dirname)) printf("Directory '%s' created.\n", dirname);
+        else printf("Error: Could not create directory '%s'.\n", dirname);
+    }
+    else if(strncmp(buffer, "cd ", 3) == 0)
+    {
+        char* dirname = buffer + 3;
+        while(*dirname == ' ') dirname++;
+
+        if(*dirname == '\0') printf("Error: No directory name provided.\n");
+        else if(!fs_chdir(dirname)) printf("Error: Directory '%s' not found.\n", dirname);
     }
     else
     {
