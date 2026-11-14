@@ -67,9 +67,14 @@ Completion criterion:
 
 # Current Major Milestone
 
-Step 3. interactive userspace (SYS_READ SYS_EXEC)
-step 4. Writable filesystem
-step 5. Improve folder structure and organization (Ok No need to do this, we are already okay)
 Step 6. Directories/improving the BMFS
 Step 7. Resolve BUG-046
 Step 8. Documentation Overhaul
+
+
+## Milestone 7
+Step 9. Add a GUI
+Step 10. Port TCC/GCC
+Step 11. Add a network stack
+Step 12. Add audio support
+Step 13. Add UEFI/real hardware support (Maybe)
