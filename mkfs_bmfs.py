@@ -8,9 +8,12 @@ FS_MAX_FILENAME = 20
 FS_MAX_FILES = 15
 SECTOR_SIZE = 512
 
+FS_TYPE_FILE = 1
+FS_ROOT_DIR = 0xFFFF
+
 def main():
     if len(sys.argv) < 3:
-        print("Usage: bmfs.py <output_fs.img> <kernel_max_sectors> [files...]")
+        print("Usage: mkfs_bmfs.py <output_fs.img> <kernel_max_sectors> [files...]")
         sys.exit(1)
 
     out_path = sys.argv[1]
@@ -39,17 +42,16 @@ def main():
         sectors = (size + SECTOR_SIZE - 1) // SECTOR_SIZE if size > 0 else 1
         padded_content = content.ljust(sectors * SECTOR_SIZE, b"\x00")
 
-        entry = struct.pack("<20sIII", name_padded, current_lba, size, 0)
+        # <20sIIHBB = name(20B), start_lba(4B), size(4B), parent(2B), type(1B), reserved(1B)
+        entry = struct.pack("<20sIIHBB", name_padded, current_lba, size, FS_ROOT_DIR, FS_TYPE_FILE, 0)
         entries_blob.extend(entry)
         data_blob.extend(padded_content)
 
         current_lba += sectors
 
-    # Pad remaining unused directory entries (up to 15) with zeroes
     remaining = FS_MAX_FILES - len(files)
     entries_blob.extend(b"\x00" * (remaining * 32))
 
-    # 32-byte header + 480-byte entries = 512-byte superblock
     header = struct.pack("<II24s", FS_MAGIC, len(files), b"\x00" * 24)
     superblock = header + entries_blob
     assert len(superblock) == SECTOR_SIZE
