@@ -1,277 +1,150 @@
 # Kernel Architecture & Design
 
-Bare Minimum OS is a 32-bit i686 operating system with a monolithic kernel. The kernel is implemented in C and x86 Assembly.
+Bare Minimum OS is a 32-bit i686 operating system with a monolithic kernel implemented in C and x86 Assembly.
 
-The current system contains both Ring 0 kernel execution and a Ring 3 userspace path. The kernel creates its own GDT during initialization, installs a TSS, sets up the IDT/PIC/PIT, enables paging, starts the scheduler, and provides a small `int 0x80` syscall interface for user code.
+The system boots via a custom BIOS bootloader, transitions to 32-bit protected mode, relocates the kernel to `0x00100000` (1 MiB), configures GDT/TSS/IDT/PIC/PIT, initializes physical and virtual memory management, mounts the BMFS disk filesystem via an ATA PIO driver, and launches a preemptively scheduled environment supporting both Ring 0 kernel tasks and Ring 3 ELF32 user processes.
 
 ## System Overview
 
 ```mermaid
 flowchart TD
-    BIOS --> BL[Custom BIOS Bootloader]
-    BL -->|Load kernel| KE[Kernel Entry]
-    BL -->|E820 map| PMM[Physical Memory Manager]
+    BIOS --> BL[Custom BIOS Bootloader @ 0x7C00]
+    BL -->|INT 0x13 LBA Read| TMP[Temp Buffer @ 0x8000]
+    BL -->|INT 0x15 E820| E820[E820 Map @ 0x5000]
+    TMP -->|Protected Mode Copy| KE[Kernel Entry @ 0x00100000]
     KE --> KM[kmain]
 
-    KM --> GDT[GDT]
-    KM --> TSS[TSS]
-    KM --> IDT[IDT / ISRs]
-    KM --> PIC[8259 PIC]
-    KM --> PIT[PIT]
+    KM --> GDT[GDT & TSS]
+    KM --> IDT[IDT & ISRs]
+    KM --> PIC[8259 PIC & PIT 100 Hz]
+    E820 --> PMM[Physical Memory Manager]
     KM --> PMM
-    PMM --> PAG[Paging]
-    PAG --> HEAP[Kernel Heap]
-    HEAP --> SCH[Scheduler]
+    PMM --> PAG[Paging & Address Spaces]
+    PAG --> HEAP[Kernel Heap @ 0xC0000000]
+    HEAP --> SCH[Preemptive Scheduler]
+    KM --> FS[ATA PIO & BMFS Filesystem]
     SCH --> SHELL[Kernel Shell]
 
-    SCH --> USER[User Task]
-    USER -->|int 0x80| SYSCALL[Syscall Handler]
+    SHELL -->|run / SYS_EXEC| ELF[ELF32 Loader]
+    FS --> ELF
+    ELF --> USER[Ring 3 User Process]
+    USER -->|int 0x80| SYSCALL[Syscall Dispatcher]
     SYSCALL --> SCH
     SYSCALL --> PAG
+    SYSCALL --> FS
 ```
 
 ## Physical Memory Map
 
-The current boot/kernel code uses the following fixed physical addresses.
+During boot and kernel initialization, the system uses the following physical memory layout:
 
-| Address | End | Purpose |
+| Physical Start | Physical End | Purpose |
 |---|---|---|
-| `0x00000` | `0x003FF` | BIOS Interrupt Vector Table (IVT) |
-| `0x00400` | `0x004FF` | BIOS Data Area (BDA) |
-| `0x05000` | — | E820 memory-map data |
-| `0x07C00` | `0x07DFF` | Bootloader code and data (512-byte boot sector) |
-| `0x08000` | — | Kernel load/link address |
-| `0x90000` | — | IDT storage (`256 * 8` bytes) |
-| `0xA0000` | — | Initial kernel stack top |
-| `0xB8000` | `0xBFFFF` | VGA text-mode memory |
+| `0x00000000` | `0x000003FF` | BIOS Interrupt Vector Table (IVT) |
+| `0x00000400` | `0x000004FF` | BIOS Data Area (BDA) |
+| `0x00005000` | `0x00005C03` | E820 memory map (`uint32_t` count at `0x5000`, 24-byte entries at `0x5004`, max 128) |
+| `0x00007C00` | `0x00007DFF` | Bootloader code and data (512-byte boot sector) |
+| `0x00008000` | `0x0001ABFF` | Temporary real-mode load buffer (`150` sectors = `75 KiB`) |
+| `0x000A0000` | — | Initial kernel stack top (`ESP = 0xA0000`) |
+| `0x000B8000` | `0x000BFFFF` | VGA text-mode hardware video memory |
+| `0x00100000` | `__bss_end` | Relocated kernel image (`.text`, `.rodata`, `.data`, `.bss`, including `idt[256]`) |
+| `__bss_end` (page-aligned) | `0xFFFFFFFF` | Usable physical RAM frames managed by the PMM |
 
-The E820 entry count is stored at `0x5000`. The entries begin at `0x5004` and are stored as 24-byte records by the current bootloader.
+## Virtual Memory Map
 
-The kernel is linked with `ENTRY(_start)` and the linker location counter begins at `0x8000`.
+Once `paging_init()` enables paging, every address space shares the following virtual layout:
 
-
-NEW:
-
-| Virtual Address Range | Size | Purpose |
-| --- | --- | --- |
-| `0x00000000 – 0x003FFFFF` | 4 MiB | "Kernel Identity Map (BIOS, VGA 0xB8000, Kernel at 0x00100000, PAGING_TEMP_VADDR at 0x003FF000)" |
-| `0x00400000 – 0xBFFFFFFF` | ~3 GiB | Unbroken User Space (USER_SPACE_START to USER_SPACE_END) |
-| `0xC0000000 – 0xDFFFFFFF` | 512 MiB | Kernel Heap (HEAP_START to HEAP_MAX_ADDR) |
-| `0xFFC00000 – 0xFFFFFFFF` | 4 MiB | Recursive Page Directory & Page Tables |
+| Virtual Start | Virtual End | Size | Purpose |
+|---|---|---|---|
+| `0x00000000` | `0x003FEFFF` | ~4 MiB | Kernel identity map (BIOS, VGA `0xB8000`, boot stack `0xA0000`, kernel `0x00100000 .. __bss_end`) |
+| `0x003FF000` | `0x003FFFFF` | 4 KiB | `PAGING_TEMP_VADDR` (temporary physical frame mapping slot) |
+| `0x00400000` | `0xBFFFFFFF` | ~3 GiB | User space (`USER_SPACE_START` to `USER_SPACE_END`; ELF segments at `0x00400000+`, user stack below `0x00801000`) |
+| `0xC0000000` | `0xDFFFFFFF` | 512 MiB | Kernel heap (`HEAP_START` to `HEAP_MAX_ADDR`) |
+| `0xE0000000` | `0xFFBFFFFF` | ~508 MiB | Reserved high kernel virtual space |
+| `0xFFC00000` | `0xFFFFFFFF` | 4 MiB | Recursive paging structures (`0xFFC00000` page tables, `0xFFFFF000` page directory) |
 
 ## Boot Process
 
-The bootloader starts at `0x7C00` in 16-bit real mode.
+`src/bootloader.asm` executes at `0x7C00` in 16-bit real mode:
 
 ```mermaid
 flowchart TD
     BIOS --> BOOT[bootloader.asm @ 0x7C00]
-    BOOT --> DISK[BIOS INT 0x13 Extended Read]
-    DISK --> KERNEL[Load 100 sectors at 0x8000]
-    BOOT --> E820[BIOS INT 0x15 E820]
-    E820 --> MAP[Store count at 0x5000 and entries at 0x5004]
-    BOOT --> A20[BIOS INT 0x15 Function 0x2401]
-    BOOT --> GDT0[Bootloader GDT]
-    GDT0 --> PM[Enable CR0.PE]
-    PM --> JMP[Jump to 0x08:0x8000]
-    JMP --> ENTRY[kernel_entry.asm]
-    ENTRY --> BSS[Zero .bss]
+    BOOT --> DISK[INT 0x13 AH=0x42 Extended Read]
+    DISK --> BUF[Read 150 sectors in 64-sector chunks to 0x8000]
+    BUF --> A20[Enable & verify A20 line]
+    A20 --> E820[INT 0x15 E820 memory map -> 0x5000]
+    E820 --> GDT0[Load bootstrap GDT & set CR0.PE]
+    GDT0 --> PM[Protected mode @ protected_mode_start]
+    PM --> COPY[rep movsd: copy 75 KiB from 0x8000 to 0x00100000]
+    COPY --> ENTRY[Jump to 0x08:0x00100000 _start]
+    ENTRY --> BSS[Zero .bss __bss_start .. __bss_end]
     BSS --> KMAIN["kmain()"]
 ```
 
-The bootloader:
-
-1. Disables interrupts and initializes real-mode segment registers and the stack.
-2. Stores the BIOS boot drive number.
-3. Resets the disk with BIOS `INT 0x13` function `AH=0x00`.
-4. Uses BIOS `INT 0x13` function `AH=0x42` with a Disk Address Packet to read 100 sectors beginning at LBA 1 into `0x0000:0x8000`.
-5. Enables A20 using BIOS `INT 0x15`, function `AX=0x2401`.
-6. Collects the E820 memory map with BIOS `INT 0x15`, `EAX=0xE820`, `EDX='SMAP'`.
-7. Loads the bootloader GDT.
-8. Enables protected mode by setting `CR0.PE`.
-9. Jumps to the kernel at `0x08:0x8000`.
-
-`kernel_entry.asm` then clears the linker-defined `.bss` range and calls `kmain()`. If `kmain()` ever returns, the entry code disables interrupts and halts in a loop.
+1. Initializes 16-bit segments (`DS = ES = SS = 0`) and stack pointer (`SP = 0x7C00`).
+2. Resets the boot drive (`INT 0x13 AH=0x00`) and reads `KERNEL_MAX_SECTORS` (`150` sectors) starting at LBA `1` into `0x0800:0x0000` (`0x8000`) in chunks of up to 64 sectors.
+3. Enables and verifies the A20 line (`enable_a20` / `check_a20`), trying BIOS `INT 0x15 AX=0x2401` and falling back to Fast A20 (port `0x92`).
+4. Collects up to 128 E820 memory map entries (`INT 0x15 EAX=0xE820`).
+5. Loads the bootstrap GDT, sets `CR0.PE = 1`, and jumps to 32-bit `protected_mode_start`.
+6. Copies the kernel image from `0x8000` to `0x00100000` (`1 MiB`) and jumps to `_start` (`src/kernel_entry.asm`).
+7. `kernel_entry.asm` zeroes `.bss` and calls `kmain()`.
 
 ## GDT and TSS
 
-The kernel creates a six-entry GDT:
+`gdt_init()` installs a 6-entry Global Descriptor Table:
 
-| Index | Selector | Descriptor |
-|---:|---:|---|
-| `0` | `0x00` | Null descriptor |
-| `1` | `0x08` | Kernel code |
-| `2` | `0x10` | Kernel data |
-| `3` | `0x1B` | User code |
-| `4` | `0x23` | User data |
-| `5` | `0x28` | TSS |
+| Index | Selector | Descriptor | Privilege |
+|---:|---:|---|---|
+| `0` | `0x00` | Null descriptor | — |
+| `1` | `0x08` | Kernel code segment | Ring 0 |
+| `2` | `0x10` | Kernel data segment | Ring 0 |
+| `3` | `0x1B` | User code segment | Ring 3 |
+| `4` | `0x23` | User data segment | Ring 3 |
+| `5` | `0x28` | Task State Segment (TSS) | Ring 0 |
 
-The kernel code/data descriptors span the full 32-bit segment range with the flags configured by `gdt_set_entry()`.
+`tss_init(0xA0000)` zeroes the TSS, sets `ss0 = 0x10` and `esp0 = 0xA0000`, installs the TSS descriptor at GDT index 5, and loads the task register (`ltr 0x28`). Whenever the scheduler switches to a user task, `tss_set_kernel_stack()` updates `tss.esp0` to that task's `kernel_stack_top`.
 
-`gdt_flush.asm` loads the kernel GDT with `lgdt`, reloads the segment registers with selector `0x10`, and performs a far jump to selector `0x08`.
+## Kernel Initialization Order
 
-The TSS is zeroed during initialization. Its `ss0` is set to the kernel data selector `0x10`, and `esp0` is initialized to `0xA0000`. `tss_set_kernel_stack()` updates `esp0` when a user task is selected. The TSS descriptor is installed at GDT index 5 and `ltr 0x28` loads the task register.
+`kmain()` (`src/kernel.c`) initializes subsystems in the following order:
 
-## Kernel Initialization
+1. `clear_screen()` — initializes the 200-line VGA scrollback buffer and clears `0xB8000`.
+2. `gdt_init()` — loads the 6-entry kernel/user GDT.
+3. `tss_init(0xA0000)` — initializes and loads the TSS.
+4. `idt_init()` — populates the 256-entry IDT in `.bss` and loads `IDTR`.
+5. `pic_init()` — remaps the 8259 PICs to vectors `32–47` and unmasks `IRQ0` (PIT) and `IRQ1` (keyboard).
+6. `pit_init(100)` — configures PIT channel 0 to 100 Hz (10 ms tick).
+7. `pmm_init()` — parses E820 entries, initializes the frame bitmap, and reserves frames `0 .. pmm_reserved_frames() - 1`.
+8. `paging_init()` — sets up recursive paging, identity-maps the first 4 MiB (except `PAGING_TEMP_VADDR`), and enables `CR0.PG | CR0.WP`.
+9. `heap_init()` — maps the initial kernel heap page at `0xC0000000`.
+10. `scheduler_init()` — creates PID `0` (`kmain`) as the idle task.
+11. `fs_init()` — reads and mounts the BMFS superblock at LBA `151`.
+12. `task_add(create_task("shell", task_shell))` and `shell_init()` — launches the interactive shell task.
+13. `sti` and `hlt` loop — enables hardware interrupts and idles in `kmain`.
 
-`kmain()` initializes the current kernel in this order:
+## Interrupts, Exceptions, and Hardware I/O Ports
 
-```mermaid
-flowchart TD
-    A[clear_screen / startup text] --> B[GDT]
-    B --> C[TSS]
-    C --> D[IDT]
-    D --> E[PIC]
-    E --> F[PIT @ 100 Hz]
-    F --> G[PMM]
-    G --> H[Paging]
-    H --> I[Kernel Heap]
-    I --> J[Scheduler]
-    J --> K[Create shell task]
-    K --> L[shell_init]
-    L --> M[sti]
-    M --> N[kmain hlt loop]
-```
+### IDT Vector Assignment
 
-The shell is created with `create_task("shell", task_shell)` and added to the scheduler's circular task list. The kernel then enables interrupts and remains in a `hlt` loop.
+| Vector Range | Source | Handler | Gate DPL |
+|---|---|---|---|
+| `0–31` | CPU Exceptions | `isr0` – `isr31` | Ring 0 (`0x8E`) |
+| `32` (`IRQ0`) | Programmable Interval Timer (PIT) | `isr32` $\rightarrow$ `pit_handler()` | Ring 0 (`0x8E`) |
+| `33` (`IRQ1`) | PS/2 Keyboard | `isr33` $\rightarrow$ `keyboard_handler()` | Ring 0 (`0x8E`) |
+| `128` (`0x80`) | System Call Interface | `isr128` $\rightarrow$ `syscall_handler()` | Ring 3 (`0xEE`) |
 
-## Interrupts and IRQ Routing
+If a CPU exception (`0–31`) occurs while executing in Ring 3 (`(regs->cs & 0x3) == 0x3`), `isr_handler()` prints a `[USER FAULT]` report (including `CR2` fault details on Page Faults) and terminates only the faulting process with exit status `-(128 + int_no)`. Kernel-mode exceptions trigger `[KERNEL PANIC]` and halt the system.
 
-The IDT contains 256 entries and is stored at physical address `0x90000`.
+### Hardware I/O Ports Used
 
-All entries initially point to `isr_unhandled`. The kernel then installs handlers for CPU exceptions `0–31`, hardware IRQ vectors `32` and `33`, and the user-callable syscall vector `128`.
-
-### PIC Remapping
-
-The 8259 PIC is remapped so the hardware IRQ range does not overlap the CPU exception range.
-
-| Source | IRQ | IDT Vector |
-|---|---:|---:|
-| CPU exceptions | — | `0–31` |
-| Master PIC | `0–7` | `32–39` |
-| Slave PIC | `8–15` | `40–47` |
-
-Currently used hardware vectors are:
-
-| IRQ | Vector | Device |
-|---:|---:|---|
-| `IRQ0` | `32` | PIT |
-| `IRQ1` | `33` | PS/2 keyboard |
-
-The remaining PIC IRQs are not assigned a device handler in the current source.
-
-### Hardware I/O Ports
-
-These ports are used directly by the current device drivers and interrupt code.
-
-| Port | Purpose |
+| Port(s) | Device / Purpose |
 |---|---|
-| `0x20` | Master PIC command / EOI |
-| `0x21` | Master PIC data / interrupt mask |
-| `0x40` | PIT channel 0 data |
-| `0x43` | PIT command |
-| `0x60` | PS/2 keyboard data |
-| `0xA0` | Slave PIC command |
-| `0xA1` | Slave PIC data / interrupt mask |
-| `0x3D4` | VGA CRT controller index |
-| `0x3D5` | VGA CRT controller data |
-| `0x80` | I/O delay used during PIC initialization |
-| `0x64` | Keyboard-controller command port used by the `reboot` shell command |
-
-### Common ISR Path
-
-The assembly stub disables interrupts, creates a uniform stack layout, saves general-purpose registers, saves the current `DS`, loads kernel data segments, and calls `isr_handler()` in C.
-
-The C dispatcher routes:
-
-- vector `32` → `pit_handler()`
-- vector `33` → `keyboard_handler()`
-- vector `128` → `syscall_handler()`
-- vectors `< 32` → CPU-exception handling
-
-For a page fault (exception `14`), the handler also reads `CR2` and prints the faulting memory address.
-
-## PIT
-
-`pit_init()` uses the PIT base frequency constant `1193180` and accepts a requested frequency. Frequencies below `20` Hz are clamped to `20` Hz.
-
-The kernel calls:
-
-```c
-pit_init(100);
-```
-
-so the current kernel configuration runs at 100 Hz.
-
-The PIT handler increments the global tick counter and runs the scheduler every 5 timer ticks. At 100 Hz, that corresponds to a nominal 50 ms scheduler interval.
-
-## Memory Management
-
-The memory subsystem has three main layers:
-
-```mermaid
-flowchart TD
-    K[Kernel / Tasks / Syscalls]
-    K --> H[Kernel Heap]
-    H --> P[Paging]
-    P --> M[Physical Memory Manager]
-    M --> R[Physical RAM]
-```
-
-- PMM manages physical frames.
-- Paging maps virtual addresses to physical frames.
-- The heap provides dynamic kernel allocation on top of paging.
-
-See [Memory Management](memory.md).
-
-## Multitasking
-
-The scheduler keeps tasks in a circular linked list.
-
-PID `0` is assigned to the initial `kmain` execution context. After scheduler initialization, `kmain` remains in its halt loop and functions as the kernel's idle execution context.
-
-Tasks can be:
-
-- `TASK_READY`
-- `TASK_RUNNING`
-- `TASK_WAITING`
-- `TASK_DEAD`
-
-The scheduler is preemptive because the PIT interrupt calls `schedule()` after every fifth tick. Tasks can also voluntarily call `yield()` or enter `TASK_WAITING` with `task_sleep()`.
-
-See [Multitasking](multitasking.md).
-
-## Ring 3 and System Calls
-
-The kernel GDT includes user code/data segments, and `enter_usermode` constructs an `iret` frame containing:
-
-- user `SS = 0x23`
-- user `ESP`
-- EFLAGS with IF set
-- user `CS = 0x1B`
-- user `EIP`
-
-The syscall IDT entry is vector `128` (`int 0x80`) and has DPL 3, allowing Ring 3 code to invoke it.
-
-User tasks receive separate page directories through `paging_create_address_space()`. Kernel-only PDEs from the kernel directory are copied into the new directory, while user-marked PDEs are not copied. A recursive PDE is installed at entry 1023.
-
-See [System Calls](syscall.md).
-
-## Kernel Shell
-
-The shell runs as a kernel task in Ring 0. It reads characters from the keyboard driver's circular buffer and implements commands for screen control, arithmetic, time, memory inspection, task inspection, kernel tests, and deliberately triggered exceptions.
-
-The shell's available commands are defined in `src/apps/shell.c`.
-
-## Current Limitations
-
-The current implementation is intentionally small and is still under active development. Important current limitations include:
-
-- Boot is BIOS-based rather than UEFI-based.
-- The bootloader reads a fixed 100 sectors for the kernel image.
-- The current userspace program is a raw embedded binary rather than an ELF executable.
-- User task creation and memory-management behavior are still being hardened and are tracked in the bug tracker.
-- The kernel shell remains a Ring 0 program even though Ring 3 execution exists for the userspace test path.
-- There is no filesystem or block-device subsystem in the current source.
-
-See the bug tracker for confirmed problems and the development roadmap for planned work.
+| `0x20`, `0x21` | Master 8259 PIC command and data/mask registers |
+| `0xA0`, `0xA1` | Slave 8259 PIC command and data/mask registers |
+| `0x40`, `0x43` | PIT channel 0 data and command port |
+| `0x60`, `0x64` | PS/2 keyboard data port (`0x60`) and controller command port (`0x64`, `0xFE` system reset) |
+| `0x80` | POST diagnostic port used for `io_wait()` delay |
+| `0x92` | System Control Port A (Fast A20 fallback in bootloader) |
+| `0x1F0–0x1F7` | Primary ATA bus PIO data, sector count, LBA, drive/head, and status/command registers |
+| `0x3D4`, `0x3D5` | VGA CRT controller index and data registers (hardware cursor position) |

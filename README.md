@@ -2,165 +2,73 @@
 
 A 32-bit i686 operating system written from scratch in C and x86 Assembly.
 
-The project currently boots through a custom BIOS bootloader, enters 32-bit protected mode, initializes the kernel's GDT/TSS/IDT/PIC/PIT infrastructure, manages physical and virtual memory, provides a kernel heap, runs scheduled tasks, and contains a small Ring 3 syscall path.
+## Features
 
-## Current Features
-
-### Boot and CPU
-
-- Custom BIOS bootloader using BIOS disk services and LBA reads
-- 32-bit x86 protected mode
-- Kernel GDT with kernel and user segments
-- Task State Segment (TSS)
-- Interrupt Descriptor Table (IDT)
-- 8259 PIC remapping and IRQ handling
-- CPU exception handling
-- Ring 0 to Ring 3 transition
-
-### Memory Management
-
-- BIOS E820 memory-map detection
-- Bitmap-based physical memory manager
-- 4 KiB physical-frame allocation
-- Next-fit physical-frame allocation
-- 32-bit two-level paging
-- Recursive page-directory mapping
-- Per-task page directories for user tasks
-- Kernel heap with `kmalloc()` / `kfree()`
-- Heap block splitting and coalescing
-
-### Multitasking
-
-- Preemptive scheduling driven by the PIT
-- Task control blocks
-- `READY`, `RUNNING`, `WAITING`, and `DEAD` task states
-- Task sleeping and waking
-- Context switching
-- Kernel tasks
-- User-task creation path
-
-### Drivers
-
-- VGA text-mode driver
-- PS/2 keyboard driver
-- Programmable Interval Timer (PIT)
-- 8259 PIC support
-
-### Kernel Utilities
-
-- Interactive kernel shell
-- Freestanding C library routines used by the kernel
-- Kernel test suite
-- CPU information command
-- Kernel memory-management inspection commands
-- Exception/page-fault crash commands
-
-### System Calls and Userspace
-
-- Ring 3 user tasks
-- System call ABI
-- User-pointer validation
-- Userspace test program
+- **Boot & CPU:** Custom BIOS LBA bootloader, 32-bit protected mode, GDT/TSS, IDT, PIC, and PIT (100 Hz).
+- **Memory Management:** BIOS E820 map parsing, bitmap physical memory manager (PMM),
+recursive paging, isolated user address spaces, and a high-memory kernel heap.
+- **Multitasking & ELF32 Loader:** Preemptive round-robin scheduler, task sleeping/waiting,
+Ring 3 fault isolation, and a multi-segment ELF32 executable loader.
+- **Filesystem & Storage:** 28-bit LBA ATA PIO disk driver and persistent filesystem.
+- **Console & Shell:** 80x25 VGA driver with a 200-line scrollback buffer, PS/2 keyboard driver, interactive kernel shell, and built-in regression test suite.
+- **Userspace (`user/`):** `int 0x80` syscall ABI, freestanding C library (`ulib`), and standalone Ring 3 C applications.
 
 ## Build and Run
 
-### Requirements
-
-- `i686-elf-gcc` cross-compiler and binutils
-- NASM
-- QEMU x86 system emulator
-
-See [Toolchain Setup](docs/toolchain_setup.md) for the cross-compiler setup used by this project.
-
-From the repository root:
+Requires `i686-elf-gcc`, `i686-elf-binutils`, `nasm`, `python3`, and `qemu-system-i386` (see [Toolchain Setup](docs/toolchain_setup.md)).
 
 ```bash
-make all        # Build the boot image
-make check      # Compile all source files
-make run        # Build and run in QEMU
-make debug      # Build and run QEMU with interrupt logging
-make print      # Print discovered sources and objects
-make clean      # Remove build files
-make rebuild    # Clean and rebuild everything
-make help       # Show all Makefile targets
+make all          # Build boot.img (bootloader + kernel + BMFS image)
+make <app>.elf    # Build a single userspace ELF binary
+make check        # Compile all kernel and userspace sources
+make run          # Build and run in QEMU
+make debug        # Run QEMU with interrupt logging
+make print        # Print discovered sources, objects, and BMFS files
+make clean        # Remove build directory
+make rebuild      # Clean and rebuild everything
 ```
 
 ## Project Structure
 
-Generated build output and the local cross-toolchain are kept outside the maintained source/documentation areas.
-
 ```text
 osdev/
-├── bugs/
-│   ├── bugs_summary.md
-│   ├── bugs_001-025.md
-│   ├── bugs_026-050.md
-│   └── roadmap.md
-│
-├── docs/
-│   ├── architecture.md
-│   ├── memory.md
-│   ├── multitasking.md
-│   ├── syscall.md
-│   ├── toolchain_setup.md
-│   └── images/
-│
-├── include/
-│   ├── cpu/
-│   ├── drivers/
-│   ├── interrupts/
-│   ├── libc/
-│   ├── mm/
-│   ├── syscall/
-│   └── task/
-│
-├── src/
-│   ├── apps/
-│   ├── cpu/
-│   ├── drivers/
-│   ├── interrupts/
-│   ├── libc/
-│   ├── mm/
-│   ├── syscall/
-│   ├── task/
-│   ├── bootloader.asm
-│   ├── kernel_entry.asm
-│   └── kernel.c
-│
-├── .gitattributes
-├── .gitignore
-├── LICENSE
-├── linker.ld
-├── Makefile
-└── README.md
+├── bugs/         # Bug tracker
+├── docs/         # Subsystem documentation
+├── include/      # Kernel header files
+├── src/          # Bootloader and kernel source files
+├── user/         # Ring 3 C library (ulib) and userspace apps
+├── linker.ld     # Kernel linker script (0x00100000)
+├── Makefile      # Build system
+└── mkfs_bmfs.py  # BMFS disk image builder
 ```
-
-`build/` contains generated object files, binaries, and the boot image. `cross/` contains the locally installed `i686-elf` cross-toolchain.
 
 ## Documentation
 
-- [Architecture](docs/architecture.md) — boot flow, CPU/interrupt setup, hardware I/O, and kernel subsystem layout
-- [Memory Management](docs/memory.md) — E820, PMM, paging, recursive mapping, and heap
-- [Multitasking](docs/multitasking.md) — task structure, scheduler, task states, context switching, and Ring 3 task setup
-- [System Calls](docs/syscall.md) — syscall ABI, syscall table, user-pointer validation, and userspace test program
-- [Toolchain Setup](docs/toolchain_setup.md) — building the `i686-elf` toolchain used by the project
-- [Bug Tracker](bugs/bugs_summary.md) — current bug index and detailed bug reports
-- [Development Plan](bugs/roadmap.md) — planned development milestones
+- [Architecture](docs/architecture.md) — Boot flow, memory layout, interrupts, and hardware I/O
+- [Memory Management](docs/memory.md) — E820, PMM, paging, address spaces, and kernel heap
+- [Multitasking & ELF Loader](docs/multitasking.md) — Scheduler, context switching, and ELF32 loading
+- [System Calls & Userspace](docs/syscall.md) — `int 0x80` ABI, pointer validation, and `ulib` runtime
+- [Filesystem (BMFS)](docs/filesystem.md) — ATA PIO driver, BMFS layout, and file commands
+- [Toolchain Setup](docs/toolchain_setup.md) — Building the `i686-elf` cross-toolchain
+- [Bug Tracker](bugs/bugs_summary.md) & [Roadmap](docs/roadmap.md)
 
-## Screenshots
+## Screenshots & Demos
 
-### Boot
+### Boot & Kernel Initialization
+![Bare Minimum OS boot](docs/assets/boot.png)
 
-![Bare Minimum OS boot](docs/images/boot.png)
+### Kernel Shell & Memory Inspection
+![Bare Minimum OS shell](docs/assets/shell.png)
 
-### Kernel Shell
+### Preemptive Multitasking & Ring 3 Fault Isolation
+![Multitasking and Ring 3 fault isolation](docs/assets/multitasking.gif)
 
-![Bare Minimum OS shell](docs/images/shell.png)
+### BMFS Directories & Persistence Across Reboot
+![BMFS filesystem and persistence](docs/assets/filesystem.gif)
 
-### Kernel Test Suite
-
-![Kernel test suite](docs/images/tests.png)
+### Kernel Test Suite (251 Tests) & VGA Scrollback
+![Kernel test suite and scrollback](docs/assets/tests.gif)
 
 ## License
 
-This project is open-source and licensed under the terms of the `LICENSE` file.
+Licensed under the terms of the `LICENSE` file.

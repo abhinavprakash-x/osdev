@@ -1,340 +1,70 @@
-# System Calls
+# System Calls & Userspace Runtime
 
-Bare Minimum OS provides a small system-call interface between Ring 3 user code and the kernel.
-
-A user program invokes a system call with:
-
-```asm
-int 0x80
-```
-
-The IDT maps vector `128` to `isr128`, which enters the common ISR path and eventually calls `syscall_handler()` in C.
+Bare Minimum OS provides a protected system-call interface between Ring 3 user programs and the Ring 0 kernel via software interrupt `int 0x80` (IDT vector `128`, DPL 3).
 
 ## Syscall ABI
 
-The current syscall handler uses the following registers:
+System calls pass arguments in registers and receive the return value in `EAX`:
 
-| Register | Meaning |
+| Register | Role |
 |---|---|
-| `EAX` | Syscall number on entry; return value on exit |
-| `EBX` | First syscall argument |
-| `ECX` | Second syscall argument |
-| `EDX` | Third syscall argument / general-purpose register |
-| `ESI` | General-purpose register |
-| `EDI` | General-purpose register |
-
-Invocation pattern:
-
-```asm
-mov eax, <syscall_number>
-; set EBX/ECX/EDX as required
-int 0x80
-```
-
-The current syscall implementation writes the return value into `regs->eax`.
-
-Negative error values are represented as 32-bit two's-complement values. For example:
-
-```text
--1 = 0xFFFFFFFF
-```
+| `EAX` | Syscall number on entry; return value on exit (`-1` on error) |
+| `EBX` | Argument 1 |
+| `ECX` | Argument 2 |
+| `EDX` | Argument 3 (reserved) |
 
 ## Syscall Table
 
-| Number | Name | Arguments | Return value |
-|---:|---|---|---|
-| `0` | `SYS_TEST` | none | `42` |
-| `1` | `SYS_WRITE` | `EBX = buffer`, `ECX = length` | bytes written, or `-1` |
-| `2` | `SYS_EXIT` | `EBX = exit status`* | does not return |
-| `3` | `SYS_YIELD` | none | `0` |
-| `4` | `SYS_SLEEP` | `EBX = milliseconds` | `0` |
-| `5` | `SYS_GETPID` | none | current PID |
-
-`SYS_EXIT` reserves `EBX` for an exit status, but the current kernel ignores that value.
-
-Unknown syscall numbers return `-1`.
-
-## `SYS_TEST` — 0
-
-A basic syscall-path sanity check.
-
-### Usage
-
-```asm
-mov eax, SYS_TEST
-int 0x80
-```
-
-### Return value
-
-```text
-EAX = 42
-```
-
-## `SYS_WRITE` — 1
-
-Writes bytes from a Ring 3 buffer to the kernel console using `putchar()`.
-
-### Arguments
-
-```text
-EBX = user buffer address
-ECX = number of bytes
-```
-
-### Usage
-
-```asm
-mov eax, SYS_WRITE
-mov ebx, buffer
-mov ecx, buffer_length
-int 0x80
-```
-
-### Return value
-
-On success:
-
-```text
-EAX = number of bytes written
-```
-
-If the buffer is null or fails the user-range validation, the syscall returns:
-
-```text
-EAX = -1
-```
-
-### User pointer validation
-
-Before reading the supplied buffer, `sys_write()` calls:
-
-```c
-user_range_valid((uint32_t)buffer, length)
-```
-
-The validator:
-
-1. Accepts a zero-length range.
-2. Detects 32-bit virtual-address wraparound.
-3. Requires the final address to be at or below `USER_SPACE_END`.
-4. Walks every page touched by the range.
-5. Requires each PDE to be present and `PTE_USER`.
-6. Requires each PTE to be present and `PTE_USER`.
-
-The current `USER_SPACE_END` value is:
-
-```c
-0xBFFFFFFF
-```
-
-## `SYS_EXIT` — 2
-
-Terminates the current task by calling `task_exit()`.
-
-### ABI
-
-```text
-EBX = exit status
-```
-
-The current kernel does not preserve or otherwise use this value.
-
-### Usage
-
-```asm
-xor ebx, ebx
-mov eax, SYS_EXIT
-int 0x80
-```
-
-The syscall is expected not to return to user code.
-
-## `SYS_YIELD` — 3
-
-Voluntarily invokes the scheduler.
-
-### Usage
-
-```asm
-mov eax, SYS_YIELD
-int 0x80
-```
-
-### Return value
-
-```text
-EAX = 0
-```
-
-## `SYS_SLEEP` — 4
-
-Blocks the current task for a duration in milliseconds.
-
-### Arguments
-
-```text
-EBX = milliseconds
-```
-
-### Usage
-
-```asm
-mov eax, SYS_SLEEP
-mov ebx, 2000
-int 0x80
-```
-
-The current task enters `TASK_WAITING` and `task_sleep()` calculates its wake time using the configured PIT frequency.
-
-### Return value
-
-```text
-EAX = 0
-```
-
-## `SYS_GETPID` — 5
-
-Returns the current task PID.
-
-### Usage
-
-```asm
-mov eax, SYS_GETPID
-int 0x80
-```
-
-### Return value
-
-```text
-EAX = current_task->pid
-```
-
-PID `0` belongs to the initial `kmain` task. User tasks are assigned non-zero PIDs by the current task-creation code.
-
-## IDT and ISR Path
-
-The syscall path is:
-
-```mermaid
-flowchart TD
-    U[Ring 3 User Program]
-    U -->|int 0x80| I128[IDT Vector 128]
-    I128 --> ISR[isr128 / common ISR stub]
-    ISR --> C[isr_handler registers_t*]
-    C --> S[syscall_handler regs]
-    S --> D{EAX syscall number}
-    D --> T[SYS_TEST]
-    D --> W[SYS_WRITE]
-    D --> X[SYS_EXIT]
-    D --> Y[SYS_YIELD]
-    D --> SL[SYS_SLEEP]
-    D --> PID[SYS_GETPID]
-    T --> RET[Return through iret]
-    W --> RET
-    X --> END[Task termination]
-    Y --> RET
-    SL --> RET
-    PID --> RET
-    RET --> U
-```
-
-The common ISR stub saves the general-purpose register set and current data segment value before entering the C dispatcher. It loads the kernel data selector `0x10` while executing the C handler and restores the saved segment value before returning.
-
-## Ring 3 Transition
-
-The kernel GDT defines:
-
-```text
-Kernel code selector = 0x08
-Kernel data selector = 0x10
-User code selector   = 0x1B
-User data selector   = 0x23
-TSS selector         = 0x28
-```
-
-`enter_usermode()` uses user data selector `0x23`, user code selector `0x1B`, and an `iretd` frame to enter Ring 3.
-
-```mermaid
-sequenceDiagram
-    participant K as Kernel / Scheduler
-    participant EU as enter_usermode
-    participant U as Ring 3 Program
-
-    K->>EU: user_eip, user_esp
-    EU->>EU: load user data selectors
-    EU->>EU: build SS/ESP/EFLAGS/CS/EIP frame
-    EU->>U: iretd
-    U->>K: int 0x80
-    K->>U: iret
-```
-
-## Per-Task Address Spaces
-
-A user task receives a page directory from `paging_create_address_space()`.
-
-The current implementation copies present kernel-only PDEs from `kernel_page_directory`, skips PDEs marked with `PTE_USER`, and sets PDE 1023 to recursively map the new directory.
-
-The scheduler calls `paging_switch_directory()` before restoring the selected task's execution context.
-
-For a Ring 3 → Ring 0 interrupt, the CPU uses the task's TSS `esp0` value as the kernel stack. The scheduler updates `esp0` from the selected task's `kernel_stack_top`.
-
-## Current Userspace Test Program
-
-The current userspace regression program is:
-
-```text
-src/apps/user_test.asm
-```
-
-It is assembled as a raw binary and copied by `launch_user_test()`.
-
-The current launcher uses:
-
-```text
-User code virtual address = 0x00400000
-User stack virtual address = 0x00800000
-User stack pointer = 0x00801000
-```
-
-The raw program uses the following syscall sequence:
-
-```text
-SYS_TEST
-SYS_GETPID
-SYS_WRITE (valid buffer)
-SYS_WRITE (invalid pointer)
-SYS_YIELD
-SYS_SLEEP
-SYS_EXIT
-```
-
-The invalid-pointer test deliberately passes:
-
-```text
-0xDEADBEEF
-```
-
-A successful program prints:
-
-```text
-================================
-    ALL SYSCALL TESTS PASSED
-================================
-```
-
-before invoking `SYS_EXIT`.
-
-### Raw binary address calculation
-
-Because the test is not an ELF executable, it cannot rely on ELF relocation. `user_test.asm` contains a `LOAD_ADDRESS` macro that calculates runtime addresses relative to the `0x00400000` load location.
-
-## Current Limitations
-
-The current syscall interface is intentionally small:
-
-- `SYS_WRITE` writes directly to the kernel console; there are no file descriptors.
-- `SYS_EXIT` accepts an exit-status argument in the ABI but the current kernel ignores it.
-- There is no userspace C library or generic syscall-wrapper layer; the regression program invokes `int 0x80` directly.
-- The userspace executable is currently a raw embedded binary, not an ELF-loaded program.
-- User memory management, task lifetime, and address-space reclamation are still being hardened.
+Defined in `include/syscall/syscall.h` and `user/ulib.h`:
+
+| Number | Name | Arguments | Return Value | Description |
+|---:|---|---|---|---|
+| `0` | `SYS_TEST` | None | `42` | Sanity-check syscall path |
+| `1` | `SYS_WRITE` | `EBX = const char* buf`<br>`ECX = uint32_t len` | Bytes written, or `-1` | Write buffer to the VGA console |
+| `2` | `SYS_EXIT` | `EBX = int32_t status` | Does not return | Terminate current process and record `status` |
+| `3` | `SYS_YIELD` | None | `0` | Voluntarily yield the CPU to the scheduler |
+| `4` | `SYS_SLEEP` | `EBX = uint32_t ms` | `0` | Put current task to sleep for `ms` milliseconds |
+| `5` | `SYS_GETPID` | None | `uint32_t pid` | Return the calling task's PID |
+| `6` | `SYS_WAITPID` | `EBX = uint32_t pid`<br>`ECX = int32_t* out_status` | Child exit status, or `-1` | Wait for task `pid` to terminate and optionally write status to `*out_status` |
+| `7` | `SYS_READ` | `EBX = char* buf`<br>`ECX = uint32_t max_len` | Bytes read, or `-1` | Read line-buffered keyboard input (until `\n` or `max_len`) with live echo and `\b` handling |
+| `8` | `SYS_EXEC` | `EBX = const char* path` | New child PID, or `-1` | Load and launch an ELF32 program from BMFS |
+
+## User Pointer Validation
+
+All pointer arguments passed from Ring 3 are validated before the kernel reads or writes them:
+
+1. **Read Validation (`user_range_valid`):**
+   - Rejects 32-bit address wraparound (`end < virtual_addr`).
+   - Requires the entire range to lie within `[USER_SPACE_START, USER_SPACE_END]` (`0x00400000 – 0xBFFFFFFF`).
+   - Walks the active page directory/page tables and verifies that every page in the range has `PTE_PRESENT | PTE_USER` set on both its PDE and PTE.
+2. **Write Validation (`paging_is_mapped_range(..., true)`):**
+   - For syscalls that write into user memory (`SYS_READ` and `SYS_WAITPID` when `out_status != NULL`), the kernel additionally requires `PTE_RW` on every touched PDE and PTE so a user program cannot trick the kernel into overwriting read-only `.text`/`.rodata` pages.
+3. **Bounded String Copy (`SYS_EXEC`):**
+   - `sys_exec()` validates `user_filename` byte-by-byte into a kernel buffer (`kfilename[FS_MAX_FILENAME]`), rejecting unmapped pointers, empty strings, or strings not null-terminated within `FS_MAX_FILENAME` (`20`) bytes.
+
+## Userspace C Runtime (`user/`)
+
+Standalone C programs in `user/` are compiled with `-ffreestanding` and linked against `user/ulib.o` using `user/linker.ld`.
+
+### Userspace Linker Script (`user/linker.ld`)
+
+- Entry point: `ENTRY(_start)` at virtual address `0x00400000`.
+- Emits two page-aligned (`0x1000`) `PT_LOAD` program headers:
+  1. `text` (`FLAGS(5)` = `PF_R | PF_X`): `.text.start`, `.text*`, and `.rodata*`.
+  2. `data` (`FLAGS(6)` = `PF_R | PF_W`): `.data*` and `.bss*` (`COMMON`).
+
+### Userspace Library (`user/ulib.h` & `user/ulib.c`)
+
+- `_start()`: Calls `int status = main();` and passes `status` to `sys_exit(status)`.
+- Syscall wrappers: `sys_test()`, `sys_write()`, `sys_exit()`, `sys_yield()`, `sys_sleep()`, `sys_getpid()`, `sys_waitpid()`, `sys_read()`, and `sys_exec()`.
+- String & formatting utilities: `strlen()`, `strcmp()`, `uatoi()`, `uitoa()`, `uprint()`, `uprintf()` (`%d`, `%s`, `%c`, `%%`), and `readline(buf, max_len)`.
+
+### Included Userspace Applications
+
+All `.c` files in `user/` (except `ulib.c`) are automatically discovered by the `Makefile`, compiled to `build/user/<name>.elf`, and packed into the BMFS disk image:
+
+- `hello.elf` (`user/hello.c`): Verifies Ring 3 ELF execution, `SYS_GETPID`, `.data`, and `.bss` initialization.
+- `fib.elf` (`user/fib.c`): Computes and prints the first 12 Fibonacci numbers and exits with status `12`.
+- `counter.elf` (`user/counter.c`): Background multitasking demo that sleeps 1 second per tick for 5 seconds.
+- `calc.elf` (`user/calc.c`): Interactive calculator using `readline()` (`SYS_READ`) and `uatoi()`.
+- `sleep.elf` (`user/sleep.c`): Sleeps for 20 seconds to test background process inspection via `ps`.

@@ -1,8 +1,8 @@
 # Toolchain Setup (i686-elf-gcc)
 
-Bare Minimum OS is built for the `i686-elf` target rather than the host operating system's native compiler target.
+Bare Minimum OS is built using a freestanding `i686-elf` cross-toolchain rather than the host system's native compiler.
 
-The repository's existing cross-toolchain layout is:
+The repository expects the cross-toolchain in `cross/bin/` (or available via the `CROSS` variable in `Makefile`):
 
 ```text
 cross/
@@ -14,130 +14,78 @@ cross/
     └── ...
 ```
 
-The current build instructions use GNU binutils 2.41 and GCC 13.2.0.
+## 1. Install Prerequisites
 
-## 1. Install prerequisites
-
-On a Debian/Ubuntu-style system:
+On a Debian/Ubuntu system:
 
 ```bash
 sudo apt update
-sudo apt install build-essential bison flex libgmp3-dev libmpc-dev libmpfr-dev texinfo wget git nasm qemu-system-x86
+sudo apt install build-essential bison flex libgmp3-dev libmpc-dev libmpfr-dev texinfo wget git nasm python3 qemu-system-x86
 ```
 
-These packages provide the build tools, GNU build dependencies, NASM, and QEMU used by the project.
-
-## 2. Download the toolchain sources
-
-The current setup instructions use:
-
-- GNU binutils `2.41`
-- GCC `13.2.0`
+## 2. Download Toolchain Sources
 
 ```bash
 wget https://ftp.gnu.org/gnu/binutils/binutils-2.41.tar.gz
 wget https://ftp.gnu.org/gnu/gcc/gcc-13.2.0/gcc-13.2.0.tar.gz
-```
-
-## 3. Extract the sources
-
-```bash
 tar -xvf binutils-2.41.tar.gz
 tar -xvf gcc-13.2.0.tar.gz
-mkdir build-binutils
-mkdir build-gcc
+mkdir build-binutils build-gcc
 ```
 
-## 4. Build binutils
+## 3. Build Binutils (`2.41`)
 
-The cross-toolchain is installed under the repository's `cross/` directory in the current setup.
-
-For a repository located at `~/osdev`:
+Assuming the repository is at `~/osdev`:
 
 ```bash
 cd ~/osdev/build-binutils
 ../binutils-2.41/configure \
-  --target=i686-elf --prefix="$HOME/osdev/cross" \
-  --disable-nls --disable-werror
+  --target=i686-elf \
+  --prefix="$HOME/osdev/cross" \
+  --disable-nls \
+  --disable-werror
 make -j$(nproc)
 make install
 ```
 
-## 5. Build GCC
-
-The current GCC configuration enables only the C language and does not use system headers.
+## 4. Build GCC (`13.2.0`)
 
 ```bash
 cd ~/osdev/build-gcc
 ../gcc-13.2.0/configure \
-  --target=i686-elf --prefix="$HOME/osdev/cross" \
-  --disable-nls --enable-languages=c --without-headers
+  --target=i686-elf \
+  --prefix="$HOME/osdev/cross" \
+  --disable-nls \
+  --enable-languages=c \
+  --without-headers
 make all-gcc -j$(nproc)
 make all-target-libgcc -j$(nproc)
-
 make install-gcc
 make install-target-libgcc
 ```
 
-## 6. Add the cross-compiler to PATH
+## 5. Build Pipeline Overview
 
-The existing setup instructions use:
-
-```bash
-echo 'export PATH="$HOME/osdev/cross/bin:$PATH"' >> ~/.bashrc
-source ~/.bashrc
-```
-
-You can then verify the compiler is available with:
-
-```bash
-i686-elf-gcc --version
-```
-
-The repository's Makefile also uses the local toolchain directly from:
-
-```text
-./cross/bin/
-```
-
-so adding it to `PATH` is convenient for interactive use but is not required by the existing Makefile path definitions.
-
-## 7. Other required tools
-
-The project also uses:
-
-```text
-nasm
-qemu-system-i386
-make
-```
-
-NASM assembles the bootloader and kernel assembly files. QEMU runs the generated raw boot image.
-
-## 8. Build flow
-
-The current project build is:
+The root `Makefile` automatically discovers all kernel sources under `src/` and all userspace applications/data files under `user/`:
 
 ```mermaid
 flowchart LR
-    C[src/**/*.c] --> CO[build/**/*.o]
-    A[src/**/*.asm] --> AO[build/**/*.o]
-    B[src/bootloader.asm] --> BB[bootloader.bin]
-    CO --> L[ld / linker.ld]
-    AO --> L
-    L --> K[kernel.bin]
-    BB --> I[boot.img]
-    K --> I
-    I --> Q[qemu-system-i386]
+    B[src/bootloader.asm] -->|nasm -f bin| BB[build/bootloader.bin]
+
+    KC[src/**/*.c] -->|i686-elf-gcc| KO[build/**/*.o]
+    KA[src/**/*.asm] -->|nasm -f elf32| KO
+    KO -->|i686-elf-ld -T linker.ld| KB[build/kernel.bin @ 0x00100000]
+
+    UL[user/ulib.c] -->|i686-elf-gcc| ULO[build/user/ulib.o]
+    UA[user/*.c] -->|i686-elf-gcc| UAO[build/user/*.o]
+    ULO -->|i686-elf-ld -T user/linker.ld| ELF[build/user/*.elf @ 0x00400000]
+    UAO --> ELF
+    TXT[user/*.txt] --> MKFS[mkfs_bmfs.py]
+    ELF --> MKFS
+    MKFS --> FS[build/fs.img @ LBA 151]
+
+    BB --> IMG[build/boot.img 4 MiB]
+    KB -->|padded to 150 sectors| IMG
+    FS --> IMG
+    IMG --> QEMU[qemu-system-i386]
 ```
-
-The linker script uses:
-
-```text
-ENTRY(_start)
-. = 0x8000
-```
-
-and emits the kernel as a raw binary.
-
----
