@@ -16,6 +16,8 @@
 #define E820_MEM_MAP_ADDR  0x5000
 #define E820_USABLE        1
 
+extern uint8_t __bss_end[];
+
 static uint32_t mem_map[PMM_BITMAP_SIZE];
 static uint32_t usable_mem_map[PMM_BITMAP_SIZE];
 
@@ -76,6 +78,13 @@ static int test_bit_usable(int bit)
     return (usable_mem_map[idx] & (1u << bit_offset)) != 0;
 }
 
+static uint32_t pmm_reserved_frames(void)
+{
+    uint32_t end_addr = (uint32_t)__bss_end;
+    if(end_addr < 0x00100000u) end_addr = 0x00100000u;
+    return (end_addr + PMM_BLOCK_SIZE - 1u) / PMM_BLOCK_SIZE;
+}
+
 void pmm_init(void)
 {
     uint32_t entry_count = *(uint32_t*)E820_MEM_MAP_ADDR;
@@ -129,10 +138,10 @@ void pmm_init(void)
         }
     }
 
-    // Protect the first 1MB of memory (0x0 to 0xFFFFF).
+    // Protect the Reserved Memory Region
     // This is strictly reserved for the BIOS, VGA Buffer, and Kernel code.
-    // 1MB / 4KB = 256 blocks.
-    for(uint32_t i = 0; i < 256; ++i)
+    uint32_t reserved_frames = pmm_reserved_frames();
+    for (uint32_t i = 0; i < reserved_frames; ++i)
     {
         if(test_bit_usable((int)i))
         {
@@ -180,7 +189,7 @@ void pmm_free_block(void* physical_addr)
 
     uint32_t bit = addr / PMM_BLOCK_SIZE;
     if (bit >= PMM_MAX_BLOCKS) return;
-    if (bit < 256) return; // Reserved first 1MB of memory
+    if (bit < pmm_reserved_frames()) return; // Preserve reserved frames (kernel, BIOS, etc.)
 
     if (!test_bit_usable((int)bit)) return; // Only free usable blocks
     if (!test_bit((int)bit)) return;
@@ -239,7 +248,7 @@ bool pmm_is_allocated_block(void *physical_addr)
     if ((addr % PMM_BLOCK_SIZE) != 0) return false;
 
     uint32_t bit = addr / PMM_BLOCK_SIZE;
-    if (bit < 256 || bit >= PMM_MAX_BLOCKS) return false;
+    if (bit < pmm_reserved_frames() || bit >= PMM_MAX_BLOCKS) return false;
 
     return test_bit_usable((int)bit) && test_bit((int)bit);
 }
@@ -318,10 +327,11 @@ void pmm_restore_allocated_ranges(const pmm_alloc_range_t* buffer, uint32_t rang
     {
         uint32_t start = buffer[i].start_frame;
         uint32_t end = start + buffer[i].frame_count;
+        uint32_t reserved_frames = pmm_reserved_frames();
 
         for (uint32_t bit = start; bit < end && bit < PMM_MAX_BLOCKS; ++bit)
         {
-            if (bit >= 256 && test_bit_usable((int)bit) && !test_bit((int)bit))
+            if (bit >= reserved_frames && test_bit_usable((int)bit) && !test_bit((int)bit))
             {
                 set_bit((int)bit);
                 used_blocks++;

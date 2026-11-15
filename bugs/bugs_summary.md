@@ -62,6 +62,6 @@ Detailed descriptions live in the range files (`bugs_001-025.md`, `bugs_026-050.
 | BUG-043 | VERIFIED | Critical | Paging |
 | BUG-044 | VERIFIED | Significant | Build / Test |
 | BUG-045 | VERIFIED | Significant | Paging / Scheduler |
-| BUG-046 | OPEN | Low | Build / Linker |
+| BUG-046 | VERIFIED | Low | Build / Linker |
 
 ---

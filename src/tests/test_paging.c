@@ -7,6 +7,7 @@
 #include "tests/test_framework.h"
 #include "mm/paging.h"
 #include "mm/pmm.h"
+#include "mm/heap.h"
 #include "libc/stdlib.h"
 
 static void test_paging_basic(void)
@@ -292,9 +293,9 @@ static void test_paging_vmm_helpers_and_policy(void)
     test_assert_true(test_phys != 0, "alloc policy test frame");
     if (test_phys != 0)
     {
-        test_assert_true(!paging_map_page(dir_a, 0x15000000u, test_phys, PTE_PRESENT | PTE_RW | PTE_USER),
+        test_assert_true(!paging_map_page(dir_a, HEAP_START, test_phys, PTE_PRESENT | PTE_RW | PTE_USER),
                          "reject PTE_USER inside kernel heap region");
-        test_assert_true(!paging_map_page(dir_a, 0xC0000000u, test_phys, PTE_PRESENT | PTE_RW | PTE_USER),
+        test_assert_true(!paging_map_page(dir_a, HEAP_MAX_ADDR, test_phys, PTE_PRESENT | PTE_RW | PTE_USER),
                          "reject PTE_USER above USER_SPACE_END");
 
         // 2. Refcounted frame sharing across two independent user processes (dir_a and dir_b)

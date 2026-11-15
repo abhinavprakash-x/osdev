@@ -2,7 +2,7 @@ ENTRY(_start)
 
 SECTIONS
 {
-    . = 0x8000;
+    . = 0x00100000;
 
     .text :
     {
@@ -28,6 +28,6 @@ SECTIONS
         __bss_end = .;
     }
 
-    /* BUG-009: Ensure kernel + .bss never overlap the IDT (0x90000) or boot stack (0xA0000) */
-    ASSERT(__bss_end <= 0x90000, "Error: Kernel .bss overlaps IDT/stack region at 0x90000")
+    /* BUG-009*/
+    ASSERT(__bss_end <= 0x003FF000, "Error: Kernel .bss exceeds initial 4 MiB identity map at 0x003FF000")
 }

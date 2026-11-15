@@ -4,8 +4,8 @@
 #include <stddef.h>
 #include <stdbool.h>
 
-#define HEAP_START    0x10000000u
-#define HEAP_MAX_ADDR 0x20000000u
+#define HEAP_START    0xC0000000u
+#define HEAP_MAX_ADDR 0xE0000000u
 #define HEAP_MAX_SIZE (HEAP_MAX_ADDR - HEAP_START)
 #define HEAP_MAGIC    0xDEADBEEFu
 

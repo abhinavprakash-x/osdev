@@ -252,7 +252,15 @@ protected_mode_start:
     mov es, ax
     mov esp, 0xa0000 ; Stack Pointer at 0xA0000
     cli
-    jmp 0x08:0x8000
+
+    ; Copy loaded kernel image from 0x8000 to 0x00100000 (1 MiB)
+    cld
+    mov esi, 0x8000
+    mov edi, 0x00100000
+    mov ecx, (KERNEL_MAX_SECTORS * 512) / 4
+    rep movsd
+
+    jmp 0x08:0x00100000
 
 ; ----------------------------
 ; DATA & VARIABLES

@@ -7,7 +7,6 @@
 #include "interrupts/idt.h"
 
 #define IDT_ENTRIES 256
-#define IDT_PHYSICAL_ADDR 0x90000
 
 extern void idt_load(uint32_t);
 
@@ -24,7 +23,7 @@ extern void isr32(); extern void isr33();
 extern void isr128();
 extern void isr_unhandled();
 
-static struct idt_entry* idt = (struct idt_entry*)IDT_PHYSICAL_ADDR;
+static struct idt_entry idt[IDT_ENTRIES];
 static struct idt_ptr idtp;
 
 static void set_idt_gate(int n, uint32_t handler)

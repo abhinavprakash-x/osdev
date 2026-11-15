@@ -49,6 +49,16 @@ The E820 entry count is stored at `0x5000`. The entries begin at `0x5004` and ar
 
 The kernel is linked with `ENTRY(_start)` and the linker location counter begins at `0x8000`.
 
+
+NEW:
+
+| Virtual Address Range | Size | Purpose |
+| --- | --- | --- |
+| `0x00000000 – 0x003FFFFF` | 4 MiB | "Kernel Identity Map (BIOS, VGA 0xB8000, Kernel at 0x00100000, PAGING_TEMP_VADDR at 0x003FF000)" |
+| `0x00400000 – 0xBFFFFFFF` | ~3 GiB | Unbroken User Space (USER_SPACE_START to USER_SPACE_END) |
+| `0xC0000000 – 0xDFFFFFFF` | 512 MiB | Kernel Heap (HEAP_START to HEAP_MAX_ADDR) |
+| `0xFFC00000 – 0xFFFFFFFF` | 4 MiB | Recursive Page Directory & Page Tables |
+
 ## Boot Process
 
 The bootloader starts at `0x7C00` in 16-bit real mode.
