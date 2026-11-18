@@ -7,10 +7,14 @@
 #define KERNEL_MAX_SECTORS 150
 #endif
 
+#ifndef STAGE2_SECTORS
+#define STAGE2_SECTORS 4
+#endif
+
 #define FS_MAX_FILENAME   20u
 #define FS_MAX_FILES      15u
 #define FS_MAGIC          0x53464D42u // "BMFS" in little-endian
-#define FS_SUPERBLOCK_LBA (1u + (uint32_t)KERNEL_MAX_SECTORS)
+#define FS_SUPERBLOCK_LBA (1u + (uint32_t)STAGE2_SECTORS + (uint32_t)KERNEL_MAX_SECTORS)
 
 #define FS_TYPE_FREE      0u
 #define FS_TYPE_FILE      1u

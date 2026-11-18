@@ -131,6 +131,52 @@ bool map_page(uint32_t virtual_addr, uint32_t physical_addr, uint32_t flags)
     return true;
 }
 
+bool map_page_mmio(uint32_t virtual_addr, uint32_t physical_addr, uint32_t flags)
+{
+    if ((virtual_addr & 0xFFFu) != 0 || (physical_addr & 0xFFFu) != 0) return false;
+    if (virtual_addr >= 0xFFC00000u || virtual_addr == PAGING_TEMP_VADDR) return false;
+
+    if ((flags & PTE_USER) != 0)
+    {
+        if(virtual_addr < USER_SPACE_START || virtual_addr > USER_SPACE_END) return false;
+        if(virtual_addr >= HEAP_START && virtual_addr < HEAP_MAX_ADDR) return false;
+    }
+
+    uint32_t page_dir_idx = (virtual_addr >> 22) & 0x3FFu;
+    uint32_t page_table_idx = (virtual_addr >> 12) & 0x3FFu;
+
+    uint32_t allowed_flags = flags & (PTE_PRESENT | PTE_RW | PTE_USER | PTE_SHARED);
+    uint32_t entry = physical_addr | allowed_flags;
+    uint32_t* v_page_dir = (uint32_t*)0xFFFFF000u;
+
+    if ((v_page_dir[page_dir_idx] & PTE_PRESENT) == 0)
+    {
+        uint32_t physical_new_table = (uint32_t)pmm_alloc_block();
+        if (physical_new_table == 0) return false;
+
+        uint32_t pde = physical_new_table | PTE_RW | PTE_PRESENT | (allowed_flags & PTE_USER);
+        v_page_dir[page_dir_idx] = pde;
+
+        if ((allowed_flags & PTE_USER) == 0 && kernel_page_directory != 0)
+        {
+            kernel_page_directory[page_dir_idx] = pde;
+        }
+
+        uint32_t* v_new_table = (uint32_t*)(0xFFC00000u + (page_dir_idx * PAGE_SIZE));
+        __asm__ volatile ("invlpg (%0)" : : "b"((uint32_t)v_new_table) : "memory");
+        memset(v_new_table, 0, PAGE_SIZE);
+    }
+    else if ((allowed_flags & PTE_USER) && !(v_page_dir[page_dir_idx] & PTE_USER)) return false;
+
+    uint32_t* pt = (uint32_t*)(0xFFC00000u + (page_dir_idx * PAGE_SIZE));
+
+    if ((pt[page_table_idx] & PTE_PRESENT) != 0) return false;
+    pt[page_table_idx] = entry;
+
+    __asm__ volatile ("invlpg (%0)" : : "b"(virtual_addr) : "memory");
+    return true;
+}
+
 void unmap_page(uint32_t virtual_addr)
 {
     // BUG-022: Ignore unaligned or recursive addresses

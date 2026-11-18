@@ -20,18 +20,23 @@ INCLUDE_DIR := include
 USER_DIR    := user
 BUILD_DIR   := build
 
-BOOTLOADER  := $(SRC_DIR)/bootloader.asm
+STAGE1_SRC  := boot/stage1.asm
+STAGE2_SRC  := boot/stage2.asm
 LINKER      := linker.ld
 USER_LINKER := $(USER_DIR)/linker.ld
 MKFS_SCRIPT := mkfs_bmfs.py
 
-BOOT_BIN    := $(BUILD_DIR)/bootloader.bin
+STAGE1_BIN  := $(BUILD_DIR)/stage1.bin
+STAGE2_BIN  := $(BUILD_DIR)/stage2.bin
 KERNEL_BIN  := $(BUILD_DIR)/kernel.bin
 FS_IMAGE    := $(BUILD_DIR)/fs.img
 BOOT_IMAGE  := $(BUILD_DIR)/boot.img
 
 KERNEL_MAX_SECTORS := 150
 KERNEL_MAX_SIZE    := $(shell expr $(KERNEL_MAX_SECTORS) \* 512)
+
+# Sectors for stage 2 (LBA 1..STAGE2_SECTORS); the kernel follows it
+STAGE2_SECTORS     := 4
 
 
 # ============================================================
@@ -80,7 +85,8 @@ CFLAGS := \
 	-MMD \
 	-MP \
 	-I$(INCLUDE_DIR) \
-	-DKERNEL_MAX_SECTORS=$(KERNEL_MAX_SECTORS)
+	-DKERNEL_MAX_SECTORS=$(KERNEL_MAX_SECTORS) \
+	-DSTAGE2_SECTORS=$(STAGE2_SECTORS)
 
 # Userspace C flags (use user/ headers instead of kernel include/)
 USER_CFLAGS := $(filter-out -I$(INCLUDE_DIR),$(CFLAGS)) -I$(USER_DIR)
@@ -89,7 +95,7 @@ USER_CFLAGS := $(filter-out -I$(INCLUDE_DIR),$(CFLAGS)) -I$(USER_DIR)
 ASFLAGS := -f elf32
 
 # NASM flags for the bootloader
-BOOT_ASFLAGS := -f bin -DKERNEL_MAX_SECTORS=$(KERNEL_MAX_SECTORS)
+BOOT_ASFLAGS := -f bin -DKERNEL_MAX_SECTORS=$(KERNEL_MAX_SECTORS) -DSTAGE2_SECTORS=$(STAGE2_SECTORS)
 
 # Kernel linker flags (flat binary)
 LDFLAGS := \
@@ -115,9 +121,9 @@ C_SOURCES := $(shell find $(SRC_DIR) -type f -name '*.c' | sort)
 # Find all kernel assembly files recursively under src/
 ASM_SOURCES := $(shell find $(SRC_DIR) -type f -name '*.asm' | sort)
 
-# The bootloader is assembled directly into a raw binary.
-# Everything else is assembled into ELF32 object files.
-ASM_KERNEL := $(filter-out $(BOOTLOADER),$(ASM_SOURCES))
+# The bootloader stages live in boot/ and are assembled into raw binaries.
+# Everything under src/ is assembled into ELF32 object files.
+ASM_KERNEL := $(ASM_SOURCES)
 
 # Automatically discover userspace library, C apps, and text/data files
 USER_LIB_SRC     := $(USER_DIR)/ulib.c
@@ -169,7 +175,11 @@ all: $(BOOT_IMAGE)
 # Bootloader
 # ============================================================
 
-$(BOOT_BIN): $(BOOTLOADER) Makefile
+$(STAGE1_BIN): $(STAGE1_SRC) Makefile
+	@mkdir -p $(dir $@)
+	$(ASM) $(BOOT_ASFLAGS) $< -o $@
+
+$(STAGE2_BIN): $(STAGE2_SRC) Makefile
 	@mkdir -p $(dir $@)
 	$(ASM) $(BOOT_ASFLAGS) $< -o $@
 
@@ -219,21 +229,21 @@ $(BUILD_DIR)/user/%.elf: $(BUILD_DIR)/user/%.o $(USER_LIB_OBJ) $(USER_LINKER)
 
 $(FS_IMAGE): $(FS_FILES) $(MKFS_SCRIPT) Makefile
 	@mkdir -p $(dir $@)
-	python3 $(MKFS_SCRIPT) $@ $(KERNEL_MAX_SECTORS) $(FS_FILES)
+	python3 $(MKFS_SCRIPT) $@ $$(expr $(STAGE2_SECTORS) + $(KERNEL_MAX_SECTORS)) $(FS_FILES)
 
 
 # ============================================================
 # Final boot image
 # ============================================================
 
-$(BOOT_IMAGE): $(BOOT_BIN) $(KERNEL_BIN) $(FS_IMAGE)
+$(BOOT_IMAGE): $(STAGE1_BIN) $(STAGE2_BIN) $(KERNEL_BIN) $(FS_IMAGE)
 	@mkdir -p $(dir $@)
 	@if [ "$$(stat -c %s $(KERNEL_BIN))" -gt $(KERNEL_MAX_SIZE) ]; then \
 		echo "Error: kernel.bin exceeds $(KERNEL_MAX_SECTORS) Sectors!"; \
 		exit 1; \
 	fi
 	truncate -s $(KERNEL_MAX_SIZE) $(KERNEL_BIN)
-	cat $(BOOT_BIN) $(KERNEL_BIN) $(FS_IMAGE) > $@
+	cat $(STAGE1_BIN) $(STAGE2_BIN) $(KERNEL_BIN) $(FS_IMAGE) > $@
 	truncate -s 4M $@
 
 

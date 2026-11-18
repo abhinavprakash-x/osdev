@@ -1,4 +1,5 @@
-[org 0x7c00]
+; Stage 2: loaded at 0x7E00 by stage 1. Everything else is the original bootloader.
+[org 0x7e00]
 [bits 16]
 
 E820_MAX_ENTRIES equ 128
@@ -6,6 +7,10 @@ SMAP_MAGIC       equ 0x534d4150
 
 %ifndef KERNEL_MAX_SECTORS
     %define KERNEL_MAX_SECTORS 150
+%endif
+
+%ifndef STAGE2_SECTORS
+    %define STAGE2_SECTORS 4
 %endif
 
 start:
@@ -80,6 +85,9 @@ start:
     ; Map the RAM using E820
     call mem_map_start
 
+    ; Get a Linear Framebuffer for VBE display
+    call vesa_vbe_start
+
     ; switch to protected mode
     cli
     lgdt [gdt_descriptor]
@@ -115,6 +123,13 @@ disk_error:
 
 a20_error:
     mov si, a20_err
+    call print_string
+    cli
+    hlt
+    jmp $
+
+vbe_error:
+    mov si, vbe_err
     call print_string
     cli
     hlt
@@ -225,6 +240,24 @@ mem_map_start:
     mov [0x5000], ebp
     ret
 
+vesa_vbe_start:
+    mov ax, 0x4f01
+    mov cx, 0x0144               ; 0x0144 = 1024*768*32
+    xor bx, bx
+    mov es, bx
+    mov di, 0x6000
+    int 0x10
+    cmp ax, 0x004f
+    jne vbe_error
+
+    mov ax, 0x4f02
+    mov bx, 0x0144
+    or bx, 0x4000
+    int 0x10
+    cmp ax, 0x004f
+    jne vbe_error
+    ret
+
 ; -------------------------
 ; GDT
 ; -------------------------
@@ -253,9 +286,9 @@ protected_mode_start:
     mov esp, 0xa0000 ; Stack Pointer at 0xA0000
     cli
 
-    ; Copy loaded kernel image from 0x8000 to 0x00100000 (1 MiB)
+    ; Copy loaded kernel image from 0x10000 to 0x00100000 (1 MiB)
     cld
-    mov esi, 0x8000
+    mov esi, 0x10000
     mov edi, 0x00100000
     mov ecx, (KERNEL_MAX_SECTORS * 512) / 4
     rep movsd
@@ -268,6 +301,7 @@ protected_mode_start:
 msg     db "Loading OS via LBA...", 0x0d, 0x0a, 0
 err     db "Disk error!", 0x0d, 0x0a, 0
 a20_err db "A20 error!", 0x0d, 0x0a, 0
+vbe_err db "VBE Error!", 0x0d, 0x0a, 0
 boot_drive db 0
 
 ; ----------------------------
@@ -282,10 +316,9 @@ DAP_sectors:
 DAP_offset:
     dw 0x0000             ; Memory Offset (0x0000)
 DAP_segment:
-    dw 0x0800             ; Memory Segment (0x0800:0x0000 = physical 0x8000)
+    dw 0x1000             ; Memory Segment (0x1000:0x0000 = physical 0x10000)
 DAP_lba:
-    dd 1                  ; LBA low 32 bits (start at Sector 1)
+    dd 1 + STAGE2_SECTORS ; LBA low 32 bits (kernel starts after stage 2)
     dd 0                  ; LBA high 32 bits
 
-times 510 - ($ - $$) db 0
-dw 0xaa55
+times STAGE2_SECTORS * 512 - ($ - $$) db 0

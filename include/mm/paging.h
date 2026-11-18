@@ -23,6 +23,7 @@ void* paging_temp_map(uint32_t physical_addr);
 void paging_temp_unmap(void);
 
 bool map_page(uint32_t virtual_addr, uint32_t physical_addr, uint32_t flags);
+bool map_page_mmio(uint32_t virtual_addr, uint32_t physical_addr, uint32_t flags);
 void unmap_page(uint32_t virtual_addr);
 uint32_t get_physical_addr(uint32_t virtual_addr);
 
