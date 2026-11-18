@@ -9,7 +9,7 @@ The system boots via a custom BIOS bootloader, transitions to 32-bit protected m
 ```mermaid
 flowchart TD
     BIOS --> BL[Custom BIOS Bootloader @ 0x7C00]
-    BL -->|INT 0x13 LBA Read| TMP[Temp Buffer @ 0x8000]
+    BL -->|INT 0x13 LBA Read| TMP[Temp Buffer @ 0x10000]
     BL -->|INT 0x15 E820| E820[E820 Map @ 0x5000]
     TMP -->|Protected Mode Copy| KE[Kernel Entry @ 0x00100000]
     KE --> KM[kmain]
@@ -43,8 +43,10 @@ During boot and kernel initialization, the system uses the following physical me
 | `0x00000000` | `0x000003FF` | BIOS Interrupt Vector Table (IVT) |
 | `0x00000400` | `0x000004FF` | BIOS Data Area (BDA) |
 | `0x00005000` | `0x00005C03` | E820 memory map (`uint32_t` count at `0x5000`, 24-byte entries at `0x5004`, max 128) |
-| `0x00007C00` | `0x00007DFF` | Bootloader code and data (512-byte boot sector) |
-| `0x00008000` | `0x0001ABFF` | Temporary real-mode load buffer (`150` sectors = `75 KiB`) |
+| `0x00006000` | `0x000060FF` | VESA VBE information block (`0x6000`) |
+| `0x00007C00` | `0x00007DFF` | Stage 1 bootloader code and data (512-byte boot sector) |
+| `0x00007E00` | `0x000085FF` | Stage 2 bootloader code and data (2048-byte boot sector) |
+| `0x00010000` | `0x00022BFF` | Temporary real-mode load buffer (`150` sectors = `75 KiB`) |
 | `0x000A0000` | — | Initial kernel stack top (`ESP = 0xA0000`) |
 | `0x000B8000` | `0x000BFFFF` | VGA text-mode hardware video memory |
 | `0x00100000` | `__bss_end` | Relocated kernel image (`.text`, `.rodata`, `.data`, `.bss`, including `idt[256]`) |
@@ -65,13 +67,15 @@ Once `paging_init()` enables paging, every address space shares the following vi
 
 ## Boot Process
 
-`src/bootloader.asm` executes at `0x7C00` in 16-bit real mode:
+`boot/stage1.asm` executes at `0x7C00` in 16-bit real mode and loads
+`boot/stage2.asm` at `0x7E00`which performs the following steps:
 
 ```mermaid
 flowchart TD
-    BIOS --> BOOT[bootloader.asm @ 0x7C00]
-    BOOT --> DISK[INT 0x13 AH=0x42 Extended Read]
-    DISK --> BUF[Read 150 sectors in 64-sector chunks to 0x8000]
+    BIOS --> BOOT[boot/stage1.asm @ 0x7C00]
+    BOOT --> BL[boot/stage2.asm @ 0x7E00]
+    BL --> DISK[INT 0x13 AH=0x42 Extended Read]
+    DISK --> BUF[Read 150 sectors in 64-sector chunks to 0x10000]
     BUF --> A20[Enable & verify A20 line]
     A20 --> E820[INT 0x15 E820 memory map -> 0x5000]
     E820 --> GDT0[Load bootstrap GDT & set CR0.PE]

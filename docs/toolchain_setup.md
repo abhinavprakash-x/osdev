@@ -70,7 +70,7 @@ The root `Makefile` automatically discovers all kernel sources under `src/` and 
 
 ```mermaid
 flowchart LR
-    B[src/bootloader.asm] -->|nasm -f bin| BB[build/bootloader.bin]
+    B[boot/stage1.asm boot/stage2.asm] -->|nasm -f bin| BB[build/stage1.bin + build/stage2.bin]
 
     KC[src/**/*.c] -->|i686-elf-gcc| KO[build/**/*.o]
     KA[src/**/*.asm] -->|nasm -f elf32| KO

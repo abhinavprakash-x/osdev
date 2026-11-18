@@ -116,20 +116,17 @@ print_string:
 
 disk_error:
     mov si, err
-    call print_string
-    cli
-    hlt
-    jmp $
+    call panic
 
 a20_error:
     mov si, a20_err
-    call print_string
-    cli
-    hlt
-    jmp $
+    call panic
 
 vbe_error:
     mov si, vbe_err
+    call panic
+
+panic:
     call print_string
     cli
     hlt
@@ -209,6 +206,8 @@ enable_a20:
     ret
 
 mem_map_start:
+    xor ax, ax
+    mov es, ax
     mov di, 0x5004          ; entries start at 0x5004, count at 0x5000
     xor ebx, ebx
     xor ebp, ebp            ; ebp counts valid entries
@@ -227,7 +226,7 @@ mem_map_start:
     cmp eax, SMAP_MAGIC
     jne .done
 
-    cmp cl, 20
+    cmp ecx, 20
     jb .skip_entry
 
     add di, 24

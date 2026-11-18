@@ -18,6 +18,7 @@ start:
 
     mov [boot_drive], dl
 
+    mov dl, [boot_drive]
     mov ah, 0x42
     mov si, DAP
     int 0x13
@@ -35,6 +36,7 @@ disk_error:
 
 boot_drive db 0
 
+align 4
 DAP:
     db 0x10
     db 0

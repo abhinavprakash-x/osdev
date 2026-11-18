@@ -8,10 +8,11 @@ The `Makefile` constructs a 4 MiB raw disk image (`boot.img`) with the following
 
 | LBA Sector(s) | Size | Contents |
 |---|---|---|
-| `0` | 512 B (1 sector) | `bootloader.bin` (Master Boot Record / 16-bit bootloader) |
-| `1 .. 150` | 75 KiB (`KERNEL_MAX_SECTORS = 150`) | `kernel.bin` (padded to exactly 150 sectors) |
-| `151` (`FS_SUPERBLOCK_LBA`) | 512 B (1 sector) | **BMFS Superblock & Directory Table** |
-| `152 .. 8191` | ~3.92 MiB | **BMFS Data Sectors** (ELF executables, text files, and dynamically created files) |
+| `0` | 512 B (1 sector) | `stage1.bin` (16-bit stage 1 loader) |
+| `1 .. 4` | 2048 B (4 sectors) | `stage2.bin` (BIOS bootloader) |
+| `5 .. 154` | 75 KiB (`KERNEL_MAX_SECTORS = 150`) | `kernel.bin` (padded to exactly 150 sectors) |
+| `155` (`FS_SUPERBLOCK_LBA`) | 512 B (1 sector) | **BMFS Superblock & Directory Table** |
+| `156 .. 8191` | ~3.92 MiB | **BMFS Data Sectors** (ELF executables, text files, and dynamically created files) |
 
 ## ATA PIO Driver (`include/drivers/ata.h`, `src/drivers/ata.c`)
 
@@ -26,13 +27,13 @@ The ATA driver communicates with the primary ATA bus (`0x1F0–0x1F7`) in 28-bit
 
 ## BMFS On-Disk Format (`include/drivers/fs.h`)
 
-The entire BMFS superblock and directory table fit inside a single 512-byte sector at `FS_SUPERBLOCK_LBA` (`151`):
+The entire BMFS superblock and directory table fit inside a single 512-byte sector at `FS_SUPERBLOCK_LBA` (`155`):
 
 ```c
 #define FS_MAX_FILENAME   20u
 #define FS_MAX_FILES      15u
 #define FS_MAGIC          0x53464D42u // "BMFS" in little-endian
-#define FS_SUPERBLOCK_LBA (1u + (uint32_t)KERNEL_MAX_SECTORS)
+#define FS_SUPERBLOCK_LBA (1u + STAGE2_SECTORS + KERNEL_MAX_SECTORS)
 
 #define FS_TYPE_FREE      0u
 #define FS_TYPE_FILE      1u
