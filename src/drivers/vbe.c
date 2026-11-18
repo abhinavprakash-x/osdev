@@ -23,7 +23,7 @@ void vbe_init(void)
     back_buffer = (uint8_t*)VBE_VIRTUAL_BASE;
 }
 
-void put_pixel(int x, int y, uint32_t color)
+void put_pixel(uint32_t x, uint32_t y, uint32_t color)
 {
     if (x < 0 || x >= vbe_info->width || y < 0 || y >= vbe_info->height) return;
 
