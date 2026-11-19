@@ -81,6 +81,9 @@ void clear_screen(void)
 
 void putchar(char c)
 {
+    // -debugcon stdio
+    // outb(0xE9, c);
+
     bool need_flush = (scroll_offset != 0);
     scroll_offset = 0;
 

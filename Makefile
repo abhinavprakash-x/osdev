@@ -265,7 +265,7 @@ debug: all
 	$(QEMU) \
 		-drive format=raw,file=$(BOOT_IMAGE) \
 		-d int \
-		-D qemu-int.log
+		-D qemu-int.log -debugcon stdio
 
 
 # ============================================================
@@ -342,7 +342,7 @@ help:
 	@echo "  make <app>.elf  Build a single userspace ELF (e.g. make hello.elf)"
 	@echo "  make check      Compile all kernel & userspace sources"
 	@echo "  make run        Build and run in QEMU"
-	@echo "  make debug      Build and run QEMU with interrupt logging"
+	@echo "  make debug      Run QEMU with interrupt logging and debug output"
 	@echo "  make print      Print discovered sources, objects, and BMFS files"
 	@echo "  make clean      Remove build directory"
 	@echo "  make rebuild    Clean and rebuild everything"

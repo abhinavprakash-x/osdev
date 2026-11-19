@@ -22,11 +22,13 @@ make all          # Build boot.img (bootloader + kernel + BMFS image)
 make <app>.elf    # Build a single userspace ELF binary
 make check        # Compile all kernel and userspace sources
 make run          # Build and run in QEMU
-make debug        # Run QEMU with interrupt logging
+make debug        # Run QEMU with interrupt logging and debug output
 make print        # Print discovered sources, objects, and BMFS files
 make clean        # Remove build directory
 make rebuild      # Clean and rebuild everything
 ```
+NOTE: The `make debug` target runs QEMU with `-debugcon stdio` and logs all interrupts to `qemu-int.log`.
+Uncomment the `putchar()` function's `outb(0xE9, c);` line in `src/drivers/vga.c`, so the debug output is visible on the terminal.
 
 ## Project Structure
 
