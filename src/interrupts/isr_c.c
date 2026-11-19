@@ -4,6 +4,7 @@
  * assembly stubs and routes them to the correct driver or handles the crash.
  */
 
+#include "drivers/vga.h"
 #include "libc/stdlib.h"
 #include "interrupts/idt.h"
 #include "syscall/syscall.h"
