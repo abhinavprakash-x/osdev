@@ -5,7 +5,7 @@
  * will migrate this to Ring 3 (User Mode) with system calls.
  */
 
-#include "drivers/vga.h"
+#include "gui/console.h"
 #include "libc/string.h"
 #include "libc/mem.h"
 #include "libc/stdlib.h"
@@ -23,6 +23,24 @@
 
 static char buffer[256];
 static int buffer_index = 0;
+
+static void trim_spaces(char* s)
+{
+    char* start = s;
+    while (*start == ' ') start++;
+
+    if (start != s)
+    {
+        size_t i = 0;
+        while ((s[i] = start[i]) != '\0') i++;
+    }
+
+    size_t len = strlen(s);
+    while (len > 0 && s[len - 1] == ' ')
+    {
+        s[--len] = '\0';
+    }
+}
 
 void shell_init(void)
 {
@@ -252,7 +270,7 @@ void execute_command(void)
     else if(strncmp(buffer, "cat ", 4) == 0)
     {
         char* filename = buffer + 4;
-        while(*filename == ' ') filename++;
+        trim_spaces(filename);
 
         if(*filename == '\0') printf("Error: No filename provided.\n");
         else
@@ -276,17 +294,16 @@ void execute_command(void)
     else if (strncmp(buffer, "run ", 4) == 0)
     {
         char* filename = buffer + 4;
-        while (*filename == ' ') filename++;
+        trim_spaces(filename);
 
         bool background = false;
         size_t len = strlen(filename);
-        while (len > 0 && filename[len - 1] == ' ') filename[--len] = '\0';
 
         if (len > 0 && filename[len - 1] == '&')
         {
             background = true;
             filename[--len] = '\0';
-            while (len > 0 && filename[len - 1] == ' ') filename[--len] = '\0';
+            trim_spaces(filename);
         }
 
         if (*filename == '\0') printf("Error: No filename provided.\n");
@@ -343,7 +360,7 @@ void execute_command(void)
     else if(strncmp(buffer, "rm ", 3) == 0)
     {
         char* filename = buffer + 3;
-        while(*filename == ' ') filename++;
+        trim_spaces(filename);
 
         if(*filename == '\0') printf("Error: No filename provided.\n");
         else
@@ -362,7 +379,7 @@ void execute_command(void)
     else if(strncmp(buffer, "mkdir ", 6) == 0)
     {
         char* dirname = buffer + 6;
-        while(*dirname == ' ') dirname++;
+        trim_spaces(dirname);
 
         if(*dirname == '\0') printf("Error: No directory name provided.\n");
         else if(fs_mkdir(dirname)) printf("Directory '%s' created.\n", dirname);
@@ -371,7 +388,7 @@ void execute_command(void)
     else if(strncmp(buffer, "cd ", 3) == 0)
     {
         char* dirname = buffer + 3;
-        while(*dirname == ' ') dirname++;
+        trim_spaces(dirname);
 
         if(*dirname == '\0') printf("Error: No directory name provided.\n");
         else if(!fs_chdir(dirname)) printf("Error: Directory '%s' not found.\n", dirname);

@@ -1,7 +1,7 @@
 #include "syscall/syscall.h"
 #include "interrupts/idt.h"
 #include "task/scheduler.h"
-#include "drivers/vga.h"
+#include "gui/console.h"
 #include "drivers/keyboard.h"
 #include "drivers/fs.h"
 #include "task/elf.h"
