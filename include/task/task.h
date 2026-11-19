@@ -4,6 +4,8 @@
 #define USER_CODE_LOAD_ADDR 0x00400000u
 #define USER_STACK_TOP_ADDR 0x00801000u
 
+#define TASK_NAME_MAX 32u
+
 typedef enum {
     TASK_READY,
     TASK_RUNNING,
@@ -14,7 +16,7 @@ typedef enum {
 typedef struct task{
     uint32_t esp;
     uint32_t pid;
-    const char* name;
+    char name[TASK_NAME_MAX];
     task_state_t state;
     int32_t exit_status;
 
@@ -34,3 +36,5 @@ void destroy_task(task_t* task);
 uint32_t task_get_next_pid(void);
 void task_set_next_pid(uint32_t next);
 uint32_t allocate_pid(void);
+
+void task_set_name(task_t* task, const char* name);

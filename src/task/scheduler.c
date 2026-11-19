@@ -78,7 +78,7 @@ void scheduler_init(void)
 
     main_task->esp = 0;
     main_task->pid = 0;
-    main_task->name = "kmain";
+    task_set_name(main_task, "kmain");
     main_task->state = TASK_RUNNING;
     main_task->exit_status = 0;
 

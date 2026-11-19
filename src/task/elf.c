@@ -194,7 +194,7 @@ task_t* create_user_task_elf(const char* name, const void* image, uint32_t size)
 
     new_task->esp = (uint32_t)stack;
     new_task->next = 0;
-    new_task->name = name;
+    task_set_name(new_task, name);
     new_task->state = TASK_READY;
     new_task->exit_status = 0;
     new_task->stack_allocation = stack_memory;

@@ -47,6 +47,24 @@ void destroy_task(task_t* task)
     kfree(task);
 }
 
+void task_set_name(task_t* task, const char* name)
+{
+    if (task == 0) return;
+    if (name == 0)
+    {
+        task->name[0] = '\0';
+        return;
+    }
+
+    uint32_t i = 0;
+    while (i < (TASK_NAME_MAX - 1u) && name[i] != '\0')
+    {
+        task->name[i] = name[i];
+        i++;
+    }
+    task->name[i] = '\0';
+}
+
 task_t* create_task(const char* name, void (*entry_point)(void))
 {
     if (name == 0 || entry_point == 0) return 0;
@@ -91,7 +109,7 @@ task_t* create_task(const char* name, void (*entry_point)(void))
         return 0;
     }
 
-    new_task->name = name;
+    task_set_name(new_task, name);
     new_task->state = TASK_READY;
     new_task->exit_status = 0;
 
@@ -229,7 +247,7 @@ task_t* create_user_task(const char* name, const void* code, uint32_t code_size,
         return 0;
     }
 
-    new_task->name = name;
+    task_set_name(new_task, name);
     new_task->state = TASK_READY;
     new_task->exit_status = 0;
 
