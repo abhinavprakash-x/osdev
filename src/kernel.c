@@ -67,8 +67,7 @@ void kmain(void)
 
     if (vbe_init())
     {
-        console_set_colors(vbe_rgb(0x55, 0xFF, 0x55), vbe_rgb(0x0C, 0x0F, 0x14));
-        console_attach(vbe_get_surface(), vbe_blit_rect);
+        console_init();
         printf("[ OK ] VBE Framebuffer (%dx%d)\n",
                (int)vbe_get_width(), (int)vbe_get_height());
     }
