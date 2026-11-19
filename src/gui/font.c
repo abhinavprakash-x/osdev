@@ -1,5 +1,6 @@
 #include "gui/font.h"
 #include "drivers/vbe.h"
+#include "gui/gfx.h"
 
 // 8x16 monospace bitmap font for printable ASCII (0x20 ' ' .. 0x7E '~'), MSB-first.
 static const uint8_t font_8x16[95][FONT_HEIGHT] = {
@@ -103,36 +104,64 @@ static const uint8_t font_8x16[95][FONT_HEIGHT] = {
 uint32_t font_get_width(void)  { return FONT_WIDTH; }
 uint32_t font_get_height(void) { return FONT_HEIGHT; }
 
-void font_draw_char(uint32_t x, uint32_t y, char c, uint32_t fg, uint32_t bg, bool draw_bg)
+void font_draw_char(surface_t* dst, uint32_t x, uint32_t y, char c,
+                    uint32_t fg, uint32_t bg, bool draw_bg)
 {
-    if (!vbe_is_initialized()) return;
+    if (dst == 0 || dst->pixels == 0) return;
 
     uint8_t idx = (uint8_t)c;
     if (idx < 0x20u || idx > 0x7Eu) idx = (uint8_t)'?';
 
     const uint8_t* glyph = font_8x16[idx - 0x20u];
 
-    for (uint32_t row = 0; row < FONT_HEIGHT; ++row)
+    // Fast path: glyph lies completely inside the surface
+    if (x + FONT_WIDTH <= dst->width && y + FONT_HEIGHT <= dst->height)
     {
-        uint8_t bits = glyph[row];
-        for (uint32_t col = 0; col < FONT_WIDTH; ++col)
+        for (uint32_t gy = 0; gy < FONT_HEIGHT; ++gy)
         {
-            if ((bits & (0x80u >> col)) != 0)
-                vbe_put_pixel(x + col, y + row, fg);
+            uint8_t bits = glyph[gy];
+            uint32_t* line = (uint32_t*)((uint8_t*)dst->pixels + ((y + gy) * dst->pitch)) + x;
+
+            if (draw_bg)
+            {
+                for (uint32_t gx = 0; gx < FONT_WIDTH; ++gx)
+                    line[gx] = ((bits & (0x80u >> gx)) != 0) ? fg : bg;
+            }
+            else
+            {
+                for (uint32_t gx = 0; gx < FONT_WIDTH; ++gx)
+                {
+                    if ((bits & (0x80u >> gx)) != 0)
+                        line[gx] = fg;
+                }
+            }
+        }
+        return;
+    }
+
+    // Clipped fallback for partial glyphs near surface edges
+    for (uint32_t gy = 0; gy < FONT_HEIGHT; ++gy)
+    {
+        uint8_t bits = glyph[gy];
+        for (uint32_t gx = 0; gx < FONT_WIDTH; ++gx)
+        {
+            if ((bits & (0x80u >> gx)) != 0)
+                gfx_put_pixel(dst, x + gx, y + gy, fg);
             else if (draw_bg)
-                vbe_put_pixel(x + col, y + row, bg);
+                gfx_put_pixel(dst, x + gx, y + gy, bg);
         }
     }
 }
 
-void font_draw_string(uint32_t x, uint32_t y, const char* s, uint32_t fg, uint32_t bg, bool draw_bg)
+void font_draw_string(surface_t* dst, uint32_t x, uint32_t y, const char* s,
+                      uint32_t fg, uint32_t bg, bool draw_bg)
 {
-    if (s == 0 || !vbe_is_initialized()) return;
+    if (dst == 0 || s == 0) return;
 
     uint32_t cx = x;
     for (uint32_t i = 0; s[i] != '\0'; ++i)
     {
-        font_draw_char(cx, y, s[i], fg, bg, draw_bg);
+        font_draw_char(dst, cx, y, s[i], fg, bg, draw_bg);
         cx += FONT_WIDTH;
     }
 }
